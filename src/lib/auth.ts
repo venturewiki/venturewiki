@@ -1,6 +1,6 @@
 import NextAuth, { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
-import { getAdminDb } from '@/lib/firebase-admin'
+import { getAdminDb, getAdminAuth } from '@/lib/firebase-admin'
 import { FieldValue } from 'firebase-admin/firestore'
 
 export const authOptions: NextAuthOptions = {
@@ -52,11 +52,19 @@ export const authOptions: NextAuthOptions = {
           }
         } catch {}
       }
+      if (token.firebaseToken) session.firebaseToken = token.firebaseToken
       return session
     },
 
     async jwt({ token, user }) {
       if (user) token.sub = user.id
+      if (token.sub) {
+        try {
+          token.firebaseToken = await getAdminAuth().createCustomToken(token.sub)
+        } catch (err) {
+          console.error('Failed to create Firebase custom token', err)
+        }
+      }
       return token
     },
   },
