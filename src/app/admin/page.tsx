@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { getAdminStats, getBusinesses } from '@/lib/db'
 import { formatNumber, formatRelativeTime, STAGE_LABELS, TYPE_LABELS } from '@/lib/utils'
-import type { AdminStats, BusinessPlan } from '@/types'
+import type { AdminStats, BusinessPlan, BusinessStage, ProductType } from '@/types'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line
@@ -61,11 +61,11 @@ export default function AdminDashboard() {
   )
 
   const stageData = Object.entries(stats?.businessesByStage || {}).map(([k, v]) => ({
-    name: STAGE_LABELS[k as any] || k, value: v
+    name: STAGE_LABELS[k as BusinessStage] || k, value: v
   }))
 
   const typeData = Object.entries(stats?.businessesByType || {}).map(([k, v]) => ({
-    name: TYPE_LABELS[k as any] || k, value: v
+    name: TYPE_LABELS[k as ProductType] || k, value: v
   }))
 
   return (

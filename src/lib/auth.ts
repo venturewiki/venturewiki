@@ -1,6 +1,6 @@
 import NextAuth, { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
-import { adminDb } from '@/lib/firebase-admin'
+import { getAdminDb } from '@/lib/firebase-admin'
 import { FieldValue } from 'firebase-admin/firestore'
 
 export const authOptions: NextAuthOptions = {
@@ -14,12 +14,12 @@ export const authOptions: NextAuthOptions = {
     async signIn({ user, account }) {
       if (!user.email) return false
       try {
-        const userRef  = adminDb.collection('users').doc(user.id || user.email)
+        const userRef  = getAdminDb().collection('users').doc(user.id || user.email)
         const userSnap = await userRef.get()
 
         if (!userSnap.exists) {
           // First sign-in — create user doc
-          const isFirstUser = (await adminDb.collection('users').limit(1).get()).empty
+          const isFirstUser = (await getAdminDb().collection('users').limit(1).get()).empty
           await userRef.set({
             id:                user.id || user.email,
             email:             user.email,
@@ -44,7 +44,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user && token.sub) {
         try {
-          const userSnap = await adminDb.collection('users').doc(token.sub).get()
+          const userSnap = await getAdminDb().collection('users').doc(token.sub).get()
           if (userSnap.exists) {
             const data = userSnap.data()!
             session.user.id   = token.sub
