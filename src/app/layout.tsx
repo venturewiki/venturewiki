@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Playfair_Display, DM_Sans, JetBrains_Mono } from 'next/font/google'
 import { Toaster } from 'sonner'
 import Providers from '@/components/layout/Providers'
+import Link from 'next/link'
 import './globals.css'
 
 const playfair = Playfair_Display({
@@ -43,9 +44,20 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${playfair.variable} ${dmSans.variable} ${jetbrains.variable}`}>
-      <body className="bg-ink text-paper font-body antialiased">
+      <body className="bg-ink text-paper font-body antialiased flex flex-col min-h-screen">
         <Providers>
-          {children}
+          <div className="flex flex-col min-h-screen">
+            <div className="flex-1">{children}</div>
+            <footer className="border-t border-rule bg-ink">
+              <div className="max-w-7xl mx-auto px-4 h-12 flex items-center justify-center gap-2 text-sm text-muted">
+                <span>© 2025 VentureWiki.io</span>
+                <span>·</span>
+                <Link href="/privacy" className="hover:text-paper transition-colors">Privacy Policy</Link>
+                <span>·</span>
+                <Link href="/terms" className="hover:text-paper transition-colors">Terms of Service</Link>
+              </div>
+            </footer>
+          </div>
           <Toaster
             theme="dark"
             toastOptions={{
