@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
+  <rect width="1200" height="630" fill="#0A0A0F"/>
+  <!-- Grid lines -->
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+  <!-- Glow -->
+  <ellipse cx="600" cy="280" rx="400" ry="220" fill="#E8622A" opacity="0.07"/>
+  <!-- Logo mark -->
+  <rect x="490" y="120" width="80" height="80" rx="18" fill="#E8622A"/>
+  <path d="M504 147 L518 175 L530 155 L542 175 L556 147" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="556" cy="146" r="5" fill="#FFD4B8"/>
+  <!-- Title -->
+  <text x="600" y="260" font-family="Georgia,serif" font-size="68" font-weight="700" fill="#F7F5F0" text-anchor="middle">VentureWiki</text>
+  <!-- Tagline -->
+  <text x="600" y="310" font-family="Georgia,serif" font-size="26" fill="#7A7A96" text-anchor="middle">The collaborative encyclopedia for digital business plans</text>
+  <!-- Pills -->
+  <rect x="370" y="360" width="140" height="36" rx="18" fill="#1C1C28" stroke="#2E2E40" stroke-width="1"/>
+  <text x="440" y="382" font-family="sans-serif" font-size="14" fill="#7A7A96" text-anchor="middle">Web Apps</text>
+  <rect x="530" y="360" width="140" height="36" rx="18" fill="#1C1C28" stroke="#2E2E40" stroke-width="1"/>
+  <text x="600" y="382" font-family="sans-serif" font-size="14" fill="#7A7A96" text-anchor="middle">Websites</text>
+  <rect x="690" y="360" width="160" height="36" rx="18" fill="#1C1C28" stroke="#2E2E40" stroke-width="1"/>
+  <text x="770" y="382" font-family="sans-serif" font-size="14" fill="#7A7A96" text-anchor="middle">AI Agents</text>
+  <!-- Domain -->
+  <text x="600" y="560" font-family="sans-serif" font-size="20" fill="#3D3D52" text-anchor="middle">venturewiki.io</text>
+</svg>

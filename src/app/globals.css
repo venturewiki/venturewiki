@@ -1,0 +1,191 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --ink: #0A0A0F;
+    --paper: #F7F5F0;
+    --lead: #1C1C28;
+    --slate: #3D3D52;
+    --muted: #7A7A96;
+    --rule: #2E2E40;
+    --accent: #E8622A;
+    --teal: #00B4A0;
+    --gold: #D4A843;
+  }
+
+  * { box-sizing: border-box; }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-color: var(--ink);
+    color: var(--paper);
+    font-family: var(--font-body), sans-serif;
+  }
+
+  ::selection {
+    background: rgba(232, 98, 42, 0.35);
+    color: #F7F5F0;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #0A0A0F; }
+  ::-webkit-scrollbar-thumb { background: #2E2E40; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3D3D52; }
+}
+
+@layer components {
+  /* Wiki table styles */
+  .wiki-table {
+    @apply w-full border-collapse text-sm;
+  }
+  .wiki-table th {
+    @apply bg-lead text-muted font-semibold text-left px-3 py-2 border-b border-rule text-xs uppercase tracking-wider;
+  }
+  .wiki-table td {
+    @apply px-3 py-2 border-b border-rule/50 text-paper/80;
+  }
+  .wiki-table tr:hover td {
+    @apply bg-lead/40;
+  }
+
+  /* Section card */
+  .section-card {
+    @apply bg-lead border border-rule rounded-xl p-6;
+  }
+
+  /* Accent bar left */
+  .accent-bar {
+    @apply border-l-2 border-accent pl-4;
+  }
+
+  /* Input base */
+  .input-base {
+    @apply w-full bg-ink border border-rule rounded-lg px-4 py-2.5 text-paper
+           placeholder:text-muted focus:outline-none focus:border-accent
+           focus:ring-1 focus:ring-accent/30 transition-colors text-sm font-body;
+  }
+
+  /* Button variants */
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-5 py-2.5 bg-accent hover:bg-accent-dark
+           text-white font-semibold rounded-lg transition-all active:scale-95
+           focus:outline-none focus:ring-2 focus:ring-accent/50 text-sm;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 px-4 py-2 text-muted hover:text-paper
+           hover:bg-lead rounded-lg transition-all text-sm;
+  }
+  .btn-outline {
+    @apply inline-flex items-center gap-2 px-4 py-2 border border-rule hover:border-accent/50
+           text-paper/70 hover:text-paper rounded-lg transition-all text-sm;
+  }
+
+  /* Status badge */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  /* Sidebar nav link */
+  .nav-link {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted hover:text-paper
+           hover:bg-lead transition-all text-sm font-medium;
+  }
+  .nav-link.active {
+    @apply text-paper bg-lead border border-rule;
+  }
+
+  /* Wiki infobox */
+  .infobox {
+    @apply bg-lead border border-rule rounded-xl overflow-hidden;
+  }
+  .infobox-header {
+    @apply bg-accent/10 border-b border-rule px-4 py-3 font-display font-bold text-accent text-sm uppercase tracking-wider;
+  }
+  .infobox-row {
+    @apply flex px-4 py-2 border-b border-rule/50 last:border-0 gap-3 text-sm;
+  }
+  .infobox-label {
+    @apply text-muted w-32 shrink-0 font-medium;
+  }
+  .infobox-value {
+    @apply text-paper/90;
+  }
+
+  /* Shimmer loading */
+  .shimmer {
+    @apply relative overflow-hidden bg-lead;
+    background: linear-gradient(90deg, #1C1C28 25%, #2E2E40 50%, #1C1C28 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* Page fade-up stagger */
+  .stagger > * {
+    @apply opacity-0 animate-fade-up;
+  }
+  .stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger > *:nth-child(2) { animation-delay: 60ms; }
+  .stagger > *:nth-child(3) { animation-delay: 120ms; }
+  .stagger > *:nth-child(4) { animation-delay: 180ms; }
+  .stagger > *:nth-child(5) { animation-delay: 240ms; }
+  .stagger > *:nth-child(6) { animation-delay: 300ms; }
+  .stagger > *:nth-child(7) { animation-delay: 360ms; }
+  .stagger > *:nth-child(8) { animation-delay: 420ms; }
+
+  /* Prose overrides for wiki content */
+  .wiki-prose {
+    @apply text-paper/80 leading-relaxed;
+  }
+  .wiki-prose h2 {
+    @apply font-display text-xl font-bold text-paper mt-8 mb-3 pb-2 border-b border-rule;
+  }
+  .wiki-prose h3 {
+    @apply font-display text-base font-semibold text-accent mt-6 mb-2;
+  }
+  .wiki-prose p {
+    @apply mb-4;
+  }
+  .wiki-prose ul {
+    @apply list-disc list-inside mb-4 space-y-1;
+  }
+  .wiki-prose strong {
+    @apply text-paper font-semibold;
+  }
+  .wiki-prose a {
+    @apply text-accent underline underline-offset-2 hover:text-accent-light;
+  }
+}
+
+/* Logo mark animation */
+@keyframes logoSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.logo-spin { animation: logoSpin 20s linear infinite; }
+
+/* Grain texture overlay */
+.grain::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+}
+
+/* Rich card hover effect */
+.venture-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.venture-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(232,98,42,0.15);
+  border-color: rgba(232,98,42,0.25);
+}

@@ -1,0 +1,12 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+    env_file:
+      - .env.docker
+    environment:
+      - WATCHPACK_POLLING=true
