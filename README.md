@@ -282,3 +282,7 @@ MIT — free to use, modify, and distribute.
 ---
 
 *Built with Next.js 14, Firebase, and a lot of ☕*
+
+
+Notes and next steps: 
+Consider integration with `similarweb.com`, and `liveplan.com`
