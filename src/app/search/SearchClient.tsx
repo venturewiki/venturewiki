@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Search, X, SlidersHorizontal } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
 import BusinessCard, { BusinessCardSkeleton } from '@/components/business/BusinessCard'
-import { subscribeBusinesses } from '@/lib/db'
+import { subscribeBusinesses } from '@/lib/api'
 import { STAGE_LABELS, TYPE_LABELS, cn } from '@/lib/utils'
 import type { BusinessPlan, BusinessStage, ProductType } from '@/types'
 

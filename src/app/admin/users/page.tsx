@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { Shield, Edit3, Users } from 'lucide-react'
-import { getAllUsers, updateUserRole } from '@/lib/db'
+import { fetchAllUsers, updateUserRole } from '@/lib/api'
 import { formatRelativeTime, cn } from '@/lib/utils'
 import type { VWUser } from '@/types'
 import { toast } from 'sonner'
@@ -20,7 +20,7 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(true)
 
   const load = () => {
-    getAllUsers().then(u => { setUsers(u); setLoading(false) })
+    fetchAllUsers().then(u => { setUsers(u); setLoading(false) })
   }
   useEffect(load, [])
 

@@ -3,9 +3,10 @@ import 'next-auth/jwt'
 
 declare module 'next-auth' {
   interface Session {
-    firebaseToken?: string
+    accessToken?: string   // GitHub OAuth token for API calls
     user: {
       id:    string
+      login: string        // GitHub username
       name:  string
       email: string
       image: string
@@ -16,6 +17,7 @@ declare module 'next-auth' {
 
 declare module 'next-auth/jwt' {
   interface JWT {
-    firebaseToken?: string
+    accessToken?: string
+    login?: string
   }
 }

@@ -100,8 +100,8 @@ export default function Navbar() {
               </div>
             </>
           ) : (
-            <button onClick={() => signIn('google')} className="btn-primary">
-              Sign in with Google
+            <button onClick={() => signIn('github')} className="btn-primary">
+              Sign in with GitHub
             </button>
           )}
         </div>

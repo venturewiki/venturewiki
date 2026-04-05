@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Eye, Edit3, Star, Archive, Plus, Search, GitBranch } from 'lucide-react'
-import { getBusinesses, toggleFeatured, archiveBusiness } from '@/lib/db'
+import { fetchBusinesses, toggleFeatured, archiveBusiness } from '@/lib/api'
 import { STAGE_LABELS, STAGE_COLORS, TYPE_LABELS, formatRelativeTime, formatNumber, cn } from '@/lib/utils'
 import type { BusinessPlan } from '@/types'
 import { toast } from 'sonner'
@@ -14,7 +14,7 @@ export default function AdminBusinesses() {
 
   const load = () => {
     setLoading(true)
-    getBusinesses({ pageSize: 100 }).then(({ businesses: b }) => {
+    fetchBusinesses({ pageSize: 100 }).then(b => {
       setBusinesses(b)
       setLoading(false)
     })

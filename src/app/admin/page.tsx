@@ -6,7 +6,7 @@ import {
   Globe, Users, GitBranch, Eye, TrendingUp, Star,
   Plus, ArrowRight, Activity, Zap
 } from 'lucide-react'
-import { getAdminStats, getBusinesses } from '@/lib/db'
+import { fetchAdminStats, fetchBusinesses } from '@/lib/api'
 import { formatNumber, formatRelativeTime, STAGE_LABELS, TYPE_LABELS } from '@/lib/utils'
 import type { AdminStats, BusinessPlan, BusinessStage, ProductType } from '@/types'
 import {
@@ -40,9 +40,9 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     Promise.all([
-      getAdminStats(),
-      getBusinesses({ pageSize: 5 }),
-    ]).then(([s, { businesses }]) => {
+      fetchAdminStats(),
+      fetchBusinesses({ pageSize: 5 }),
+    ]).then(([s, businesses]) => {
       setStats(s)
       setRecent(businesses)
       setLoading(false)

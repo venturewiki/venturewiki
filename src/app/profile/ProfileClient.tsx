@@ -7,7 +7,7 @@ import Link                    from 'next/link'
 import { Edit3, Globe, GitBranch, Clock, ArrowLeft } from 'lucide-react'
 import Navbar                  from '@/components/layout/Navbar'
 import BusinessCard            from '@/components/business/BusinessCard'
-import { subscribeBusinesses } from '@/lib/db'
+import { subscribeBusinesses } from '@/lib/api'
 import { formatRelativeTime, formatNumber } from '@/lib/utils'
 import type { BusinessPlan }   from '@/types'
 

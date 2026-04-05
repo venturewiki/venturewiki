@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { Activity, GitBranch, MessageSquare, UserPlus, Plus } from 'lucide-react'
-import { getAdminStats } from '@/lib/db'
+import { fetchAdminStats } from '@/lib/api'
 import { formatRelativeTime } from '@/lib/utils'
 import type { AdminStats } from '@/types'
 
@@ -17,7 +17,7 @@ export default function AdminActivity() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getAdminStats().then(s => { setStats(s); setLoading(false) })
+    fetchAdminStats().then(s => { setStats(s); setLoading(false) })
   }, [])
 
   return (

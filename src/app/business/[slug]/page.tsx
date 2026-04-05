@@ -10,7 +10,7 @@ import {
   ChevronRight, AlertTriangle, TrendingUp, Zap
 } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
-import { getBusinessBySlug, incrementViewCount, toggleFeatured, getEditHistory, getComments, addComment } from '@/lib/db'
+import { fetchBusiness, incrementViewCount, toggleFeatured, fetchEditHistory, fetchComments, postComment } from '@/lib/api'
 import { cn, STAGE_LABELS, STAGE_COLORS, TYPE_ICONS, TYPE_LABELS, formatRelativeTime, formatNumber } from '@/lib/utils'
 import type { BusinessPlan, EditRecord, Comment } from '@/types'
 
@@ -27,27 +27,21 @@ export default function BusinessPage() {
 
   useEffect(() => {
     if (!slug) return
-    getBusinessBySlug(slug as string).then(b => {
+    fetchBusiness(slug as string).then(b => {
       setBusiness(b)
       setLoading(false)
       if (b) {
         incrementViewCount(b.id)
-        getEditHistory(b.id).then(setEdits)
-        getComments(b.id).then(setComments)
+        fetchEditHistory(b.id).then(setEdits)
+        fetchComments(b.id).then(setComments)
       }
     })
   }, [slug])
 
   const handleComment = async () => {
     if (!newComment.trim() || !session || !business) return
-    await addComment({
-      businessId: business.id,
-      userId:     session.user.id,
-      userName:   session.user.name,
-      userImage:  session.user.image,
-      content:    newComment.trim(),
-    })
-    setComments(await getComments(business.id))
+    await postComment(business.id, newComment.trim())
+    setComments(await fetchComments(business.id))
     setNewComment('')
   }
 

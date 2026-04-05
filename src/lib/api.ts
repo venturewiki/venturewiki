@@ -1,0 +1,157 @@
+// Client-side API module — replaces direct imports from db.ts in 'use client' components
+import type { BusinessPlan, EditRecord, Comment, AdminStats, VWUser } from '@/types'
+
+// ── Businesses ────────────────────────────────────────────────────────────────
+
+export async function fetchBusinesses(opts: {
+  pageSize?: number
+  stage?: string
+  type?: string
+  search?: string
+  featuredOnly?: boolean
+} = {}): Promise<BusinessPlan[]> {
+  const params = new URLSearchParams()
+  if (opts.pageSize) params.set('pageSize', String(opts.pageSize))
+  if (opts.stage) params.set('stage', opts.stage)
+  if (opts.type) params.set('type', opts.type)
+  if (opts.search) params.set('search', opts.search)
+  if (opts.featuredOnly) params.set('featuredOnly', 'true')
+
+  const res = await fetch(`/api/businesses?${params}`)
+  if (!res.ok) throw new Error('Failed to fetch businesses')
+  return res.json()
+}
+
+export function subscribeBusinesses(
+  callback: (businesses: BusinessPlan[]) => void
+): () => void {
+  let cancelled = false
+
+  async function fetchAll() {
+    if (cancelled) return
+    try {
+      const businesses = await fetchBusinesses({ pageSize: 50 })
+      if (!cancelled) callback(businesses)
+    } catch (err) {
+      console.error('Failed to fetch businesses', err)
+      if (!cancelled) callback([])
+    }
+  }
+
+  fetchAll()
+  const interval = setInterval(fetchAll, 30_000)
+
+  return () => {
+    cancelled = true
+    clearInterval(interval)
+  }
+}
+
+export async function fetchBusiness(slug: string): Promise<BusinessPlan | null> {
+  const res = await fetch(`/api/businesses/${encodeURIComponent(slug)}`)
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error('Failed to fetch business')
+  return res.json()
+}
+
+export async function createBusiness(
+  data: Omit<BusinessPlan, 'id' | 'slug' | 'createdAt' | 'updatedAt' | 'viewCount' | 'editCount'>
+): Promise<string> {
+  const res = await fetch('/api/businesses', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Failed to create business' }))
+    throw new Error(err.error)
+  }
+  const { slug } = await res.json()
+  return slug
+}
+
+export async function updateBusiness(
+  id: string, data: Partial<BusinessPlan>, editSummary: string
+): Promise<void> {
+  const res = await fetch(`/api/businesses/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ data, editSummary }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Failed to update business' }))
+    throw new Error(err.error)
+  }
+}
+
+// ── Comments ──────────────────────────────────────────────────────────────────
+
+export async function fetchComments(slug: string): Promise<Comment[]> {
+  const res = await fetch(`/api/businesses/${encodeURIComponent(slug)}/comments`)
+  if (!res.ok) return []
+  return res.json()
+}
+
+export async function postComment(slug: string, content: string, section?: string): Promise<string> {
+  const res = await fetch(`/api/businesses/${encodeURIComponent(slug)}/comments`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content, section }),
+  })
+  if (!res.ok) throw new Error('Failed to post comment')
+  const { id } = await res.json()
+  return id
+}
+
+// ── Edit History ──────────────────────────────────────────────────────────────
+
+export async function fetchEditHistory(slug: string): Promise<EditRecord[]> {
+  const res = await fetch(`/api/businesses/${encodeURIComponent(slug)}/history`)
+  if (!res.ok) return []
+  return res.json()
+}
+
+// ── Admin ─────────────────────────────────────────────────────────────────────
+
+export async function toggleFeatured(id: string, featured: boolean): Promise<void> {
+  const res = await fetch(`/api/businesses/${encodeURIComponent(id)}/featured`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ featured }),
+  })
+  if (!res.ok) throw new Error('Failed to toggle featured')
+}
+
+export async function archiveBusiness(id: string): Promise<void> {
+  const res = await fetch(`/api/businesses/${encodeURIComponent(id)}/archive`, {
+    method: 'POST',
+  })
+  if (!res.ok) throw new Error('Failed to archive business')
+}
+
+export async function fetchAdminStats(): Promise<AdminStats> {
+  const res = await fetch('/api/admin/stats')
+  if (!res.ok) throw new Error('Failed to fetch admin stats')
+  return res.json()
+}
+
+export async function fetchAllUsers(): Promise<VWUser[]> {
+  const res = await fetch('/api/admin/users')
+  if (!res.ok) throw new Error('Failed to fetch users')
+  return res.json()
+}
+
+export async function updateUserRole(userId: string, role: VWUser['role']): Promise<void> {
+  const res = await fetch('/api/admin/users', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, role }),
+  })
+  if (!res.ok) throw new Error('Failed to update role')
+}
+
+// ── No-ops (view count is derived from repo watchers) ─────────────────────────
+
+export async function incrementViewCount(_id: string): Promise<void> {
+  // View count derived from repo watchers — no API call needed
+}

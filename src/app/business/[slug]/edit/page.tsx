@@ -9,7 +9,7 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { toast }                from 'sonner'
 import { Save, Plus, Trash2, ArrowLeft, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import Navbar                   from '@/components/layout/Navbar'
-import { getBusiness, updateBusiness } from '@/lib/db'
+import { fetchBusiness, updateBusiness } from '@/lib/api'
 import { EMPTY_BUSINESS, cn }   from '@/lib/utils'
 import type { BusinessPlan }    from '@/types'
 
@@ -77,7 +77,7 @@ export default function EditBusinessPage() {
 
   useEffect(() => {
     if (!id) return
-    getBusiness(id).then(b => {
+    fetchBusiness(id).then(b => {
       if (!b) { toast.error('Business not found'); router.push('/'); return }
       setBiz(b)
       reset(b)
@@ -96,7 +96,7 @@ export default function EditBusinessPage() {
     setSaving(true)
     try {
       await updateBusiness(
-        biz!.id, data, session.user.id,
+        biz!.id, data,
         `Edited by ${session.user.name}`
       )
       toast.success('Changes saved!')

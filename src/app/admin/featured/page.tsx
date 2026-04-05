@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Star, StarOff, ExternalLink } from 'lucide-react'
-import { getBusinesses, toggleFeatured } from '@/lib/db'
+import { fetchBusinesses, toggleFeatured } from '@/lib/api'
 import { STAGE_LABELS, STAGE_COLORS, cn } from '@/lib/utils'
 import type { BusinessPlan } from '@/types'
 import { toast } from 'sonner'
@@ -13,7 +13,7 @@ export default function AdminFeatured() {
 
   const load = () => {
     setLoading(true)
-    getBusinesses({ pageSize: 100 }).then(({ businesses }) => {
+    fetchBusinesses({ pageSize: 100 }).then(businesses => {
       setAll(businesses)
       setLoading(false)
     })

@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react'
 import { Plus, Zap, Globe, Bot, TrendingUp, ArrowRight, Filter } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
 import BusinessCard, { BusinessCardSkeleton } from '@/components/business/BusinessCard'
-import { subscribeBusinesses } from '@/lib/db'
+import { subscribeBusinesses } from '@/lib/api'
 import { STAGE_LABELS, TYPE_LABELS } from '@/lib/utils'
 import type { BusinessPlan, BusinessStage, ProductType } from '@/types'
 

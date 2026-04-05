@@ -6,7 +6,7 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { toast } from 'sonner'
 import { Save, Plus, Trash2, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
-import { getBusiness, getBusinessBySlug, updateBusiness, createBusiness } from '@/lib/db'
+import { fetchBusiness, createBusiness, updateBusiness } from '@/lib/api'
 import { EMPTY_BUSINESS, cn } from '@/lib/utils'
 import type { BusinessPlan } from '@/types'
 
@@ -92,7 +92,7 @@ export default function BusinessEditorPage() {
 
   useEffect(() => {
     if (isNew) return
-    getBusinessBySlug(params.slug as string).then(b => {
+    fetchBusiness(params.slug as string).then(b => {
       if (b) reset(b)
       setLoading(false)
     })
@@ -110,17 +110,15 @@ export default function BusinessEditorPage() {
     setSaving(true)
     try {
       if (isNew) {
-        const id = await createBusiness(
-          { ...data, createdBy: session.user.id },
-          session.user.id
+        const slug = await createBusiness(
+          { ...data, createdBy: session.user.id }
         )
         toast.success('Business plan created!')
-        const created = await getBusiness(id)
-        router.push(`/business/${created?.slug}`)
+        router.push(`/business/${slug}`)
       } else {
-        const existing = await getBusinessBySlug(params.slug as string)
+        const existing = await fetchBusiness(params.slug as string)
         if (existing) {
-          await updateBusiness(existing.id, data, session.user.id, 'Updated business plan')
+          await updateBusiness(existing.id, data, 'Updated business plan')
           toast.success('Changes saved!')
           router.push(`/business/${existing.slug}`)
         }

@@ -1,39 +1,27 @@
 import NextAuth, { NextAuthOptions } from 'next-auth'
-import GoogleProvider from 'next-auth/providers/google'
-import { getAdminDb, getAdminAuth } from '@/lib/firebase-admin'
-import { FieldValue } from 'firebase-admin/firestore'
+import GitHubProvider from 'next-auth/providers/github'
+import { upsertUser, getUser } from '@/lib/db'
 
 export const authOptions: NextAuthOptions = {
   providers: [
-    GoogleProvider({
-      clientId:     process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    GitHubProvider({
+      clientId:     process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      authorization: { params: { scope: 'read:user user:email public_repo' } },
     }),
   ],
   callbacks: {
-    async signIn({ user, account }) {
-      if (!user.email) return false
+    async signIn({ user, account, profile }) {
+      if (!account) return false
       try {
-        const userRef  = getAdminDb().collection('users').doc(user.id || user.email)
-        const userSnap = await userRef.get()
-
-        if (!userSnap.exists) {
-          // First sign-in — create user doc
-          const isFirstUser = (await getAdminDb().collection('users').limit(1).get()).empty
-          await userRef.set({
-            id:                user.id || user.email,
-            email:             user.email,
-            name:              user.name || '',
-            image:             user.image || '',
-            role:              isFirstUser ? 'admin' : 'editor',
-            createdAt:         new Date().toISOString(),
-            lastActiveAt:      new Date().toISOString(),
-            businessesCreated: 0,
-            editsCount:        0,
-          })
-        } else {
-          await userRef.update({ lastActiveAt: new Date().toISOString() })
-        }
+        const ghProfile = profile as any
+        await upsertUser({
+          id:    ghProfile?.id?.toString() ?? user.id,
+          login: ghProfile?.login ?? user.name ?? '',
+          email: user.email || '',
+          name:  user.name || ghProfile?.login || '',
+          image: user.image || '',
+        })
         return true
       } catch (err) {
         console.error('signIn error', err)
@@ -41,31 +29,30 @@ export const authOptions: NextAuthOptions = {
       }
     },
 
+    async jwt({ token, account, profile }) {
+      if (account) {
+        token.accessToken = account.access_token
+        const ghProfile = profile as any
+        token.login = ghProfile?.login ?? ''
+        token.sub = ghProfile?.id?.toString() ?? token.sub
+      }
+      return token
+    },
+
     async session({ session, token }) {
       if (session.user && token.sub) {
+        session.user.id = token.sub
+        session.user.login = (token.login as string) || ''
+        session.accessToken = token.accessToken as string
+
         try {
-          const userSnap = await getAdminDb().collection('users').doc(token.sub).get()
-          if (userSnap.exists) {
-            const data = userSnap.data()!
-            session.user.id   = token.sub
-            session.user.role = data.role
+          const dbUser = await getUser(token.sub)
+          if (dbUser) {
+            session.user.role = dbUser.role
           }
         } catch {}
       }
-      if (token.firebaseToken) session.firebaseToken = token.firebaseToken
       return session
-    },
-
-    async jwt({ token, user }) {
-      if (user) token.sub = user.id
-      if (token.sub) {
-        try {
-          token.firebaseToken = await getAdminAuth().createCustomToken(token.sub)
-        } catch (err) {
-          console.error('Failed to create Firebase custom token', err)
-        }
-      }
-      return token
     },
   },
   pages: {

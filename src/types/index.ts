@@ -1,9 +1,10 @@
-// ── User ──────────────────────────────────────────────────────────────────────
+// ── User (backed by GitHub user profile) ──────────────────────────────────────
 export interface VWUser {
-  id: string
+  id: string            // GitHub user ID (numeric string)
+  login: string         // GitHub username (e.g. "octocat")
   email: string
   name: string
-  image?: string
+  image?: string        // GitHub avatar URL
   role: 'viewer' | 'editor' | 'admin'
   createdAt: string
   lastActiveAt: string
@@ -197,30 +198,30 @@ export interface BusinessPlan {
   }
 }
 
-// ── Edit history (wiki-style) ─────────────────────────────────────────────────
+// ── Edit history (from git commits) ───────────────────────────────────────────
 export interface EditRecord {
-  id: string
-  businessId: string
-  userId: string
+  id: string             // git commit SHA
+  businessId: string     // repo slug
+  userId: string         // GitHub login
   userName: string
   userImage?: string
-  timestamp: string
-  section: string
-  summary: string
+  timestamp: string      // commit date ISO
+  section: string        // commit message (first line)
+  summary: string        // commit message (full)
   diff?: string
 }
 
-// ── Comment ───────────────────────────────────────────────────────────────────
+// ── Comment (from GitHub Discussions or Issues) ───────────────────────────────
 export interface Comment {
-  id: string
-  businessId: string
-  userId: string
+  id: string             // GitHub comment ID
+  businessId: string     // repo slug
+  userId: string         // GitHub login
   userName: string
   userImage?: string
-  content: string
+  content: string        // markdown body
   createdAt: string
   updatedAt?: string
-  parentId?: string
+  parentId?: string      // for threaded replies
   section?: string
 }
 

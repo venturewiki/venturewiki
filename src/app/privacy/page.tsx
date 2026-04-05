@@ -140,8 +140,8 @@ export default function PrivacyPage() {
                   Privacy Policy governs data shared with Google.
                 </li>
                 <li>
-                  <span className="text-paper">Firebase / Google Cloud</span> — our primary database
-                  and hosting infrastructure.
+                  <span className="text-paper">GitHub</span> — our primary data store
+                  and version control infrastructure.
                 </li>
                 <li>
                   <span className="text-paper">Railway</span> — our application hosting provider.

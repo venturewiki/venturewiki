@@ -1,228 +1,576 @@
-import {
-  collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
-  query, where, orderBy, limit, increment, serverTimestamp,
-  onSnapshot, Unsubscribe, startAfter, QueryDocumentSnapshot,
-  writeBatch, DocumentData, Timestamp,
-} from 'firebase/firestore'
-import { db } from './firebase'
-import type { BusinessPlan, VWUser, EditRecord, Comment, AdminStats } from '@/types'
+import yaml from 'js-yaml'
+import { getPublicOctokit, getAdminOctokit, GITHUB_ORG } from './github'
+import { generatePagesWorkflow, enableGitHubPages } from './pages-template'
+import type { BusinessPlan, VWUser, EditRecord, Comment, AdminStats, BusinessStage, ProductType } from '@/types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const toDate = (v: any) =>
-  v instanceof Timestamp ? v.toDate().toISOString() : v ?? new Date().toISOString()
 
 function slugify(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 }
 
+function decodeContent(content: string): string {
+  return Buffer.from(content, 'base64').toString('utf-8')
+}
+
+function encodeContent(content: string): string {
+  return Buffer.from(content, 'utf-8').toString('base64')
+}
+
+async function readPlanYaml(slug: string): Promise<{ data: any; sha: string } | null> {
+  try {
+    const octokit = getPublicOctokit()
+    const { data } = await octokit.rest.repos.getContent({
+      owner: GITHUB_ORG,
+      repo: slug,
+      path: '.venturewiki/plan.yaml',
+    })
+    if ('content' in data && data.type === 'file') {
+      return { data: yaml.load(decodeContent(data.content)), sha: data.sha }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+async function writePlanYaml(
+  slug: string, plan: any, message: string, existingSha?: string
+): Promise<void> {
+  const octokit = getAdminOctokit()
+  await octokit.rest.repos.createOrUpdateFileContents({
+    owner: GITHUB_ORG,
+    repo: slug,
+    path: '.venturewiki/plan.yaml',
+    message,
+    content: encodeContent(yaml.dump(plan, { lineWidth: -1 })),
+    ...(existingSha ? { sha: existingSha } : {}),
+  })
+}
+
+function generateReadme(plan: BusinessPlan): string {
+  const c = plan.cover
+  const p = plan.problemSolution
+  const f = plan.financials
+  return `# ${c.logoEmoji || '🚀'} ${c.companyName}
+
+> ${c.tagline}
+
+**Stage:** ${c.stage} · **Type:** ${c.productType} · **Funding:** ${c.fundingStage}
+${c.headquarters ? `**HQ:** ${c.headquarters}` : ''}${c.websiteUrl ? ` · [Website](${c.websiteUrl})` : ''}
+
+---
+
+## Mission
+${c.mission}
+
+## Vision
+${c.vision}
+
+## The Problem
+${p.corePainPoint}
+
+## Our Solution
+${p.solutionOneLiner}
+
+## Market
+| | Size | Source |
+|---|---|---|
+| **TAM** | ${p.market.tamSize} | ${p.market.tamSource} |
+| **SAM** | ${p.market.samSize} | ${p.market.samSource} |
+| **SOM** | ${p.market.somSize} | ${p.market.somSource} |
+
+## Financials
+| Metric | Value |
+|---|---|
+| Revenue Model | ${f.revenueModel} |
+| Gross Margin | ${f.grossMargin} |
+| Burn Rate | ${f.burnRate} |
+| Runway | ${f.runway} |
+
+${f.projections.length > 0 ? `### Projections
+| Year | Revenue | EBITDA | Users |
+|---|---|---|---|
+${f.projections.map(p => `| ${p.year} | ${p.revenue} | ${p.ebitda} | ${p.users} |`).join('\n')}` : ''}
+
+---
+
+*Powered by [VentureWiki](https://venturewiki.io) — The open wiki for digital business plans*
+`
+}
+
+function planToTopics(plan: BusinessPlan): string[] {
+  const topics = ['venturewiki']
+  if (plan.cover.stage) topics.push(`stage-${plan.cover.stage}`)
+  if (plan.cover.productType) topics.push(`type-${plan.cover.productType}`)
+  if (plan.cover.fundingStage) topics.push(`funding-${plan.cover.fundingStage}`)
+  if (plan.isFeatured) topics.push('venturewiki-featured')
+  if (plan.cover.industryVertical) {
+    topics.push(slugify(plan.cover.industryVertical))
+  }
+  return topics.slice(0, 20)
+}
+
+function repoToPlan(repo: any, planData: any): BusinessPlan {
+  return {
+    ...planData,
+    id: repo.name,
+    slug: repo.name,
+    createdAt: repo.created_at,
+    updatedAt: repo.pushed_at || repo.updated_at,
+    viewCount: repo.watchers_count || 0,
+    isArchived: repo.archived || false,
+    isPublic: !repo.private,
+    isFeatured: (repo.topics || []).includes('venturewiki-featured'),
+  }
+}
+
 // ── Business Plans ────────────────────────────────────────────────────────────
+
 export async function createBusiness(
   data: Omit<BusinessPlan, 'id' | 'slug' | 'createdAt' | 'updatedAt' | 'viewCount' | 'editCount'>,
   userId: string
 ): Promise<string> {
   const slug = slugify(data.cover.companyName) + '-' + Date.now().toString(36)
-  const ref  = await addDoc(collection(db, 'businesses'), {
+  const octokit = getAdminOctokit()
+
+  await octokit.rest.repos.createInOrg({
+    org: GITHUB_ORG,
+    name: slug,
+    description: `${data.cover.logoEmoji || '🚀'} ${data.cover.companyName} — ${data.cover.tagline}`,
+    visibility: 'public',
+    has_issues: true,
+    auto_init: false,
+  })
+
+  const plan: any = {
     ...data,
+    id: slug,
     slug,
-    createdAt:  serverTimestamp(),
-    updatedAt:  serverTimestamp(),
-    viewCount:  0,
-    editCount:  0,
+    createdBy: userId,
+    contributors: [userId],
+    viewCount: 0,
+    editCount: 0,
+    isPublic: true,
     isArchived: false,
     isFeatured: false,
-    contributors: [userId],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+
+  await writePlanYaml(slug, plan, `✨ Create business plan: ${data.cover.companyName}`)
+
+  await octokit.rest.repos.createOrUpdateFileContents({
+    owner: GITHUB_ORG,
+    repo: slug,
+    path: 'README.md',
+    message: 'Add README',
+    content: encodeContent(generateReadme(plan as BusinessPlan)),
   })
-  // increment user counter
-  await updateDoc(doc(db, 'users', userId), { businessesCreated: increment(1) })
-  return ref.id
+
+  // Add GitHub Actions workflow for GitHub Pages
+  await octokit.rest.repos.createOrUpdateFileContents({
+    owner: GITHUB_ORG,
+    repo: slug,
+    path: '.github/workflows/pages.yml',
+    message: '🌐 Add GitHub Pages workflow',
+    content: encodeContent(generatePagesWorkflow()),
+  })
+
+  // Enable GitHub Pages (source: GitHub Actions)
+  await enableGitHubPages(octokit, GITHUB_ORG, slug)
+
+  try {
+    await octokit.rest.repos.replaceAllTopics({
+      owner: GITHUB_ORG,
+      repo: slug,
+      names: planToTopics(plan as BusinessPlan),
+    })
+  } catch {}
+
+  return slug
 }
 
 export async function getBusiness(id: string): Promise<BusinessPlan | null> {
-  const snap = await getDoc(doc(db, 'businesses', id))
-  if (!snap.exists()) return null
-  const d = snap.data()
-  return { ...d, id: snap.id, createdAt: toDate(d.createdAt), updatedAt: toDate(d.updatedAt) } as BusinessPlan
+  return getBusinessBySlug(id)
 }
 
 export async function getBusinessBySlug(slug: string): Promise<BusinessPlan | null> {
-  const q    = query(collection(db, 'businesses'), where('slug', '==', slug), limit(1))
-  const snap = await getDocs(q)
-  if (snap.empty) return null
-  const d = snap.docs[0].data()
-  return { ...d, id: snap.docs[0].id, createdAt: toDate(d.createdAt), updatedAt: toDate(d.updatedAt) } as BusinessPlan
+  try {
+    const octokit = getPublicOctokit()
+    const { data: repo } = await octokit.rest.repos.get({
+      owner: GITHUB_ORG,
+      repo: slug,
+    })
+    const planResult = await readPlanYaml(slug)
+    if (!planResult) return null
+    return repoToPlan(repo, planResult.data)
+  } catch {
+    return null
+  }
 }
 
 export async function updateBusiness(
   id: string, data: Partial<BusinessPlan>, userId: string, editSummary: string
 ): Promise<void> {
-  const batch = writeBatch(db)
-  batch.update(doc(db, 'businesses', id), {
+  const existing = await readPlanYaml(id)
+  if (!existing) throw new Error('Business not found')
+
+  const updated = {
+    ...existing.data,
     ...data,
-    updatedAt: serverTimestamp(),
-    editCount: increment(1),
-    contributors: (data.contributors ?? []).includes(userId)
-      ? data.contributors
-      : [...(data.contributors ?? []), userId],
-  })
-  // Log edit
-  const editRef = doc(collection(db, 'edits'))
-  batch.set(editRef, {
-    businessId: id,
-    userId,
-    timestamp:  serverTimestamp(),
-    section:    editSummary,
-    summary:    editSummary,
-  })
-  batch.update(doc(db, 'users', userId), { editsCount: increment(1) })
-  await batch.commit()
+    updatedAt: new Date().toISOString(),
+    editCount: (existing.data.editCount || 0) + 1,
+  }
+
+  if (!updated.contributors?.includes(userId)) {
+    updated.contributors = [...(updated.contributors || []), userId]
+  }
+
+  await writePlanYaml(id, updated, `📝 ${editSummary}`, existing.sha)
+
+  const octokit = getAdminOctokit()
+  try {
+    const { data: readmeFile } = await octokit.rest.repos.getContent({
+      owner: GITHUB_ORG,
+      repo: id,
+      path: 'README.md',
+    })
+    if ('sha' in readmeFile) {
+      await octokit.rest.repos.createOrUpdateFileContents({
+        owner: GITHUB_ORG,
+        repo: id,
+        path: 'README.md',
+        message: '📄 Update README',
+        content: encodeContent(generateReadme(updated as BusinessPlan)),
+        sha: readmeFile.sha,
+      })
+    }
+  } catch {}
+
+  try {
+    await octokit.rest.repos.replaceAllTopics({
+      owner: GITHUB_ORG,
+      repo: id,
+      names: planToTopics(updated as BusinessPlan),
+    })
+  } catch {}
 }
 
 export async function getBusinesses(opts: {
   pageSize?: number
-  stage?:    string
-  type?:     string
-  search?:   string
-  cursor?:   QueryDocumentSnapshot<DocumentData>
+  stage?: string
+  type?: string
+  search?: string
   featuredOnly?: boolean
-} = {}): Promise<{ businesses: BusinessPlan[]; lastDoc: QueryDocumentSnapshot<DocumentData> | null }> {
-  let q = query(
-    collection(db, 'businesses'),
-    where('isArchived', '==', false),
-    orderBy('updatedAt', 'desc'),
-    limit(opts.pageSize ?? 20)
-  )
-  if (opts.stage)        q = query(q, where('cover.stage', '==', opts.stage))
-  if (opts.featuredOnly) q = query(q, where('isFeatured', '==', true))
-  if (opts.cursor)       q = query(q, startAfter(opts.cursor))
+} = {}): Promise<{ businesses: BusinessPlan[]; lastDoc: null }> {
+  const octokit = getPublicOctokit()
 
-  const snap = await getDocs(q)
-  const businesses = snap.docs.map(d => {
-    const data = d.data()
-    return { ...data, id: d.id, createdAt: toDate(data.createdAt), updatedAt: toDate(data.updatedAt) } as BusinessPlan
+  let searchQuery = `org:${GITHUB_ORG} topic:venturewiki`
+  if (opts.stage) searchQuery += ` topic:stage-${opts.stage}`
+  if (opts.type) searchQuery += ` topic:type-${opts.type}`
+  if (opts.featuredOnly) searchQuery += ` topic:venturewiki-featured`
+  if (opts.search) searchQuery += ` ${opts.search} in:name,description`
+  searchQuery += ' archived:false'
+
+  const { data: searchResult } = await octokit.rest.search.repos({
+    q: searchQuery,
+    sort: 'updated',
+    order: 'desc',
+    per_page: opts.pageSize ?? 20,
   })
-  return { businesses, lastDoc: snap.docs[snap.docs.length - 1] ?? null }
+
+  const businesses = await Promise.all(
+    searchResult.items.map(async (repo) => {
+      const planResult = await readPlanYaml(repo.name)
+      if (!planResult) return null
+      return repoToPlan(repo, planResult.data)
+    })
+  )
+
+  return {
+    businesses: businesses.filter((b): b is BusinessPlan => b !== null),
+    lastDoc: null,
+  }
 }
 
 export function subscribeBusinesses(
   callback: (businesses: BusinessPlan[]) => void
-): Unsubscribe {
-  const q = query(
-    collection(db, 'businesses'),
-    where('isArchived', '==', false),
-    orderBy('updatedAt', 'desc'),
-    limit(50)
-  )
-  return onSnapshot(q, snap => {
-    const businesses = snap.docs.map(d => {
-      const data = d.data()
-      return { ...data, id: d.id, createdAt: toDate(data.createdAt), updatedAt: toDate(data.updatedAt) } as BusinessPlan
-    })
-    callback(businesses)
-  })
+): () => void {
+  let cancelled = false
+
+  async function fetchAll() {
+    if (cancelled) return
+    try {
+      const { businesses } = await getBusinesses({ pageSize: 50 })
+      if (!cancelled) callback(businesses)
+    } catch (err) {
+      console.error('Failed to fetch businesses', err)
+      if (!cancelled) callback([])
+    }
+  }
+
+  fetchAll()
+  const interval = setInterval(fetchAll, 30_000)
+
+  return () => {
+    cancelled = true
+    clearInterval(interval)
+  }
 }
 
 export async function incrementViewCount(id: string) {
-  await updateDoc(doc(db, 'businesses', id), { viewCount: increment(1) })
+  // View count derived from repo watchers — no manual counter needed
 }
 
 export async function toggleFeatured(id: string, featured: boolean) {
-  await updateDoc(doc(db, 'businesses', id), { isFeatured: featured })
+  const octokit = getAdminOctokit()
+  const { data: repo } = await octokit.rest.repos.get({ owner: GITHUB_ORG, repo: id })
+  let topics = repo.topics || []
+  if (featured && !topics.includes('venturewiki-featured')) {
+    topics.push('venturewiki-featured')
+  } else if (!featured) {
+    topics = topics.filter((t: string) => t !== 'venturewiki-featured')
+  }
+  await octokit.rest.repos.replaceAllTopics({ owner: GITHUB_ORG, repo: id, names: topics })
 }
 
 export async function archiveBusiness(id: string) {
-  await updateDoc(doc(db, 'businesses', id), { isArchived: true })
+  const octokit = getAdminOctokit()
+  await octokit.rest.repos.update({ owner: GITHUB_ORG, repo: id, archived: true })
 }
 
-// ── Users ─────────────────────────────────────────────────────────────────────
+// ── Users (registry stored in .venturewiki meta repo) ─────────────────────────
+
+const USERS_REPO = '.venturewiki'
+
+async function readUsersRegistry(): Promise<{ users: VWUser[]; sha: string }> {
+  try {
+    const octokit = getAdminOctokit()
+    const { data } = await octokit.rest.repos.getContent({
+      owner: GITHUB_ORG,
+      repo: USERS_REPO,
+      path: 'users.yaml',
+    })
+    if ('content' in data && data.type === 'file') {
+      return { users: (yaml.load(decodeContent(data.content)) as VWUser[]) || [], sha: data.sha }
+    }
+  } catch {}
+  return { users: [], sha: '' }
+}
+
+async function writeUsersRegistry(users: VWUser[], sha: string): Promise<void> {
+  const octokit = getAdminOctokit()
+  await octokit.rest.repos.createOrUpdateFileContents({
+    owner: GITHUB_ORG,
+    repo: USERS_REPO,
+    path: 'users.yaml',
+    message: '👤 Update users registry',
+    content: encodeContent(yaml.dump(users, { lineWidth: -1 })),
+    ...(sha ? { sha } : {}),
+  })
+}
+
 export async function getUser(id: string): Promise<VWUser | null> {
-  const snap = await getDoc(doc(db, 'users', id))
-  if (!snap.exists()) return null
-  return { ...snap.data(), id: snap.id } as VWUser
+  const { users } = await readUsersRegistry()
+  return users.find(u => u.id === id || u.login === id) ?? null
 }
 
 export async function getAllUsers(): Promise<VWUser[]> {
-  const snap = await getDocs(query(collection(db, 'users'), orderBy('createdAt', 'desc')))
-  return snap.docs.map(d => ({ ...d.data(), id: d.id }) as VWUser)
+  const { users } = await readUsersRegistry()
+  return users.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+}
+
+export async function upsertUser(user: Partial<VWUser> & { id: string; login: string }): Promise<VWUser> {
+  const { users, sha } = await readUsersRegistry()
+  const existing = users.find(u => u.id === user.id)
+  if (existing) {
+    Object.assign(existing, { ...user, lastActiveAt: new Date().toISOString() })
+    await writeUsersRegistry(users, sha)
+    return existing
+  }
+
+  const isFirstUser = users.length === 0
+  const newUser: VWUser = {
+    id: user.id,
+    login: user.login,
+    email: user.email || '',
+    name: user.name || user.login,
+    image: user.image,
+    role: isFirstUser ? 'admin' : 'editor',
+    createdAt: new Date().toISOString(),
+    lastActiveAt: new Date().toISOString(),
+    businessesCreated: 0,
+    editsCount: 0,
+  }
+  users.push(newUser)
+  await writeUsersRegistry(users, sha)
+  return newUser
 }
 
 export async function updateUserRole(id: string, role: VWUser['role']) {
-  await updateDoc(doc(db, 'users', id), { role })
+  const { users, sha } = await readUsersRegistry()
+  const user = users.find(u => u.id === id)
+  if (user) {
+    user.role = role
+    await writeUsersRegistry(users, sha)
+  }
 }
 
-// ── Edit History ─────────────────────────────────────────────────────────────
+// ── Edit History (from git commits on plan.yaml) ─────────────────────────────
+
 export async function getEditHistory(businessId: string): Promise<EditRecord[]> {
-  const q    = query(collection(db, 'edits'), where('businessId', '==', businessId), orderBy('timestamp', 'desc'), limit(50))
-  const snap = await getDocs(q)
-  return snap.docs.map(d => ({ ...d.data(), id: d.id, timestamp: toDate(d.data().timestamp) }) as EditRecord)
+  try {
+    const octokit = getPublicOctokit()
+    const { data: commits } = await octokit.rest.repos.listCommits({
+      owner: GITHUB_ORG,
+      repo: businessId,
+      path: '.venturewiki/plan.yaml',
+      per_page: 50,
+    })
+    return commits.map(c => ({
+      id: c.sha,
+      businessId,
+      userId: c.author?.login || c.commit.author?.name || '',
+      userName: c.commit.author?.name || c.author?.login || '',
+      userImage: c.author?.avatar_url,
+      timestamp: c.commit.author?.date || '',
+      section: c.commit.message.split('\n')[0],
+      summary: c.commit.message,
+    }))
+  } catch {
+    return []
+  }
 }
 
-// ── Comments ──────────────────────────────────────────────────────────────────
-export async function addComment(data: Omit<Comment, 'id' | 'createdAt'>): Promise<string> {
-  const ref = await addDoc(collection(db, 'comments'), {
-    ...data,
-    createdAt: serverTimestamp(),
+// ── Comments (GitHub Issues as discussion threads) ───────────────────────────
+
+async function getOrCreateDiscussionIssue(repoSlug: string): Promise<number> {
+  const octokit = getAdminOctokit()
+  const { data: issues } = await octokit.rest.issues.listForRepo({
+    owner: GITHUB_ORG,
+    repo: repoSlug,
+    labels: 'discussion',
+    state: 'open',
+    per_page: 1,
   })
-  return ref.id
+  if (issues.length > 0) return issues[0].number
+
+  const { data: issue } = await octokit.rest.issues.create({
+    owner: GITHUB_ORG,
+    repo: repoSlug,
+    title: '💬 Discussion — Leave your feedback',
+    body: 'This is the community discussion thread for this business plan. Share feedback, ask questions, or suggest edits!',
+    labels: ['discussion'],
+  })
+  return issue.number
+}
+
+export async function addComment(data: Omit<Comment, 'id' | 'createdAt'>): Promise<string> {
+  const octokit = getAdminOctokit()
+  const issueNumber = await getOrCreateDiscussionIssue(data.businessId)
+  const body = data.section
+    ? `**Re: ${data.section}**\n\n${data.content}`
+    : data.content
+
+  const { data: comment } = await octokit.rest.issues.createComment({
+    owner: GITHUB_ORG,
+    repo: data.businessId,
+    issue_number: issueNumber,
+    body,
+  })
+  return comment.id.toString()
 }
 
 export async function getComments(businessId: string): Promise<Comment[]> {
-  const q    = query(collection(db, 'comments'), where('businessId', '==', businessId), orderBy('createdAt', 'asc'))
-  const snap = await getDocs(q)
-  return snap.docs.map(d => ({ ...d.data(), id: d.id, createdAt: toDate(d.data().createdAt) }) as Comment)
+  try {
+    const octokit = getPublicOctokit()
+    const issueNumber = await getOrCreateDiscussionIssue(businessId)
+    const { data: comments } = await octokit.rest.issues.listComments({
+      owner: GITHUB_ORG,
+      repo: businessId,
+      issue_number: issueNumber,
+      per_page: 100,
+    })
+    return comments.map(c => ({
+      id: c.id.toString(),
+      businessId,
+      userId: c.user?.login || '',
+      userName: c.user?.login || '',
+      userImage: c.user?.avatar_url,
+      content: c.body || '',
+      createdAt: c.created_at,
+      updatedAt: c.updated_at,
+    }))
+  } catch {
+    return []
+  }
 }
 
 export async function deleteComment(id: string) {
-  await deleteDoc(doc(db, 'comments', id))
+  // GitHub Issue comments are managed on GitHub — no-op in this layer
 }
 
-// ── Admin Stats ───────────────────────────────────────────────────────────────
+// ── Admin Stats ─────────────────────────────────────────────────────────────
+
 export async function getAdminStats(): Promise<AdminStats> {
-  const [bizSnap, usersSnap, editsSnap] = await Promise.all([
-    getDocs(query(collection(db, 'businesses'), where('isArchived', '==', false))),
-    getDocs(collection(db, 'users')),
-    getDocs(query(collection(db, 'edits'), orderBy('timestamp', 'desc'), limit(20))),
+  const [{ businesses }, users] = await Promise.all([
+    getBusinesses({ pageSize: 100 }),
+    getAllUsers(),
   ])
 
-  const businesses = bizSnap.docs.map(d => d.data())
-  const users      = usersSnap.docs.map(d => d.data())
-
   const byStage: Record<string, number> = {}
-  const byType:  Record<string, number> = {}
-  let totalViews = 0, totalEdits = 0
+  const byType: Record<string, number> = {}
+  let totalViews = 0
+  let totalEdits = 0
 
   businesses.forEach(b => {
-    byStage[b.cover?.stage ?? 'idea'] = (byStage[b.cover?.stage ?? 'idea'] ?? 0) + 1
-    byType[b.cover?.productType ?? 'other'] = (byType[b.cover?.productType ?? 'other'] ?? 0) + 1
+    const stage = b.cover?.stage ?? 'idea'
+    const type = b.cover?.productType ?? 'other'
+    byStage[stage] = (byStage[stage] ?? 0) + 1
+    byType[type] = (byType[type] ?? 0) + 1
     totalViews += b.viewCount ?? 0
     totalEdits += b.editCount ?? 0
   })
 
-  const recentActivity = editsSnap.docs.slice(0, 10).map(d => {
-    const data = d.data()
-    return {
-      type:       'edit' as const,
-      userId:     data.userId,
-      userName:   data.userName ?? '',
-      businessId: data.businessId,
-      timestamp:  toDate(data.timestamp),
-    }
-  })
+  const recentActivity: AdminStats['recentActivity'] = []
+  for (const biz of businesses.slice(0, 5)) {
+    try {
+      const history = await getEditHistory(biz.slug)
+      history.slice(0, 3).forEach(h => {
+        recentActivity.push({
+          type: 'edit',
+          userId: h.userId,
+          userName: h.userName,
+          userImage: h.userImage,
+          businessId: biz.id,
+          businessName: biz.cover.companyName,
+          timestamp: h.timestamp,
+        })
+      })
+    } catch {}
+  }
 
-  const contributorMap: Record<string, number> = {}
-  users.forEach(u => { contributorMap[u.id] = u.editsCount ?? 0 })
+  recentActivity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+
   const topContributors = users
     .sort((a, b) => (b.editsCount ?? 0) - (a.editsCount ?? 0))
     .slice(0, 5)
-    .map(u => ({ userId: u.id, userName: u.name, userImage: u.image, editsCount: u.editsCount ?? 0 }))
+    .map(u => ({
+      userId: u.id,
+      userName: u.name || u.login,
+      userImage: u.image,
+      editsCount: u.editsCount ?? 0,
+    }))
 
   return {
     totalBusinesses: businesses.length,
-    totalUsers:      users.length,
+    totalUsers: users.length,
     totalEdits,
     totalViews,
-    businessesByStage: byStage as any,
-    businessesByType:  byType as any,
-    recentActivity,
+    businessesByStage: byStage as Record<BusinessStage, number>,
+    businessesByType: byType as Record<ProductType, number>,
+    recentActivity: recentActivity.slice(0, 10),
     topContributors,
     monthlyGrowth: [],
   }
