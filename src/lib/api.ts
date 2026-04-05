@@ -39,7 +39,7 @@ export function subscribeBusinesses(
   }
 
   fetchAll()
-  const interval = setInterval(fetchAll, 30_000)
+  const interval = setInterval(fetchAll, 120_000)
 
   return () => {
     cancelled = true

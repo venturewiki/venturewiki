@@ -3,6 +3,27 @@ import { getPublicOctokit, getAdminOctokit, GITHUB_ORG } from './github'
 import { generatePagesWorkflow, enableGitHubPages } from './pages-template'
 import type { BusinessPlan, VWUser, EditRecord, Comment, AdminStats, BusinessStage, ProductType, RoleCandidate, Validation, InvestmentInterest, VentureValue } from '@/types'
 
+// ── In-memory cache (reduces GitHub API calls) ──────────────────────────────
+
+const cache = new Map<string, { data: any; ts: number }>()
+const CACHE_TTL = 60_000 // 60 seconds
+
+function getCached<T>(key: string): T | undefined {
+  const entry = cache.get(key)
+  if (entry && Date.now() - entry.ts < CACHE_TTL) return entry.data as T
+  return undefined
+}
+
+function setCache(key: string, data: any): void {
+  cache.set(key, { data, ts: Date.now() })
+}
+
+function invalidateCache(prefix: string): void {
+  Array.from(cache.keys()).forEach(key => {
+    if (key.startsWith(prefix)) cache.delete(key)
+  })
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function slugify(name: string) {
@@ -18,6 +39,10 @@ function encodeContent(content: string): string {
 }
 
 async function readPlanYaml(slug: string): Promise<{ data: any; sha: string } | null> {
+  const cacheKey = `plan:${slug}`
+  const cached = getCached<{ data: any; sha: string }>(cacheKey)
+  if (cached) return cached
+
   try {
     const octokit = getPublicOctokit()
     const { data } = await octokit.rest.repos.getContent({
@@ -26,7 +51,9 @@ async function readPlanYaml(slug: string): Promise<{ data: any; sha: string } | 
       path: '.venturewiki/plan.yaml',
     })
     if ('content' in data && data.type === 'file') {
-      return { data: yaml.load(decodeContent(data.content)), sha: data.sha }
+      const result = { data: yaml.load(decodeContent(data.content)), sha: data.sha }
+      setCache(cacheKey, result)
+      return result
     }
     return null
   } catch {
@@ -46,6 +73,7 @@ async function writePlanYaml(
     content: encodeContent(yaml.dump(plan, { lineWidth: -1 })),
     ...(existingSha ? { sha: existingSha } : {}),
   })
+  invalidateCache(`plan:${slug}`)
 }
 
 function generateReadme(plan: BusinessPlan): string {
@@ -347,6 +375,10 @@ export async function archiveBusiness(id: string) {
 const USERS_REPO = '.venturewiki'
 
 async function readUsersRegistry(): Promise<{ users: VWUser[]; sha: string }> {
+  const cacheKey = 'users:registry'
+  const cached = getCached<{ users: VWUser[]; sha: string }>(cacheKey)
+  if (cached) return cached
+
   try {
     const octokit = getAdminOctokit()
     const { data } = await octokit.rest.repos.getContent({
@@ -355,7 +387,9 @@ async function readUsersRegistry(): Promise<{ users: VWUser[]; sha: string }> {
       path: 'users.yaml',
     })
     if ('content' in data && data.type === 'file') {
-      return { users: (yaml.load(decodeContent(data.content)) as VWUser[]) || [], sha: data.sha }
+      const result = { users: (yaml.load(decodeContent(data.content)) as VWUser[]) || [], sha: data.sha }
+      setCache(cacheKey, result)
+      return result
     }
   } catch {}
   return { users: [], sha: '' }
@@ -371,6 +405,7 @@ async function writeUsersRegistry(users: VWUser[], sha: string): Promise<void> {
     content: encodeContent(yaml.dump(users, { lineWidth: -1 })),
     ...(sha ? { sha } : {}),
   })
+  invalidateCache('users:')
 }
 
 export async function getUser(id: string): Promise<VWUser | null> {
