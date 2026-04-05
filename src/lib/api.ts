@@ -1,5 +1,5 @@
 // Client-side API module — replaces direct imports from db.ts in 'use client' components
-import type { BusinessPlan, EditRecord, Comment, AdminStats, VWUser } from '@/types'
+import type { BusinessPlan, EditRecord, Comment, AdminStats, VWUser, RoleCandidate, Validation, InvestmentInterest, VentureValue } from '@/types'
 
 // ── Businesses ────────────────────────────────────────────────────────────────
 
@@ -154,4 +154,84 @@ export async function updateUserRole(userId: string, role: VWUser['role']): Prom
 
 export async function incrementViewCount(_id: string): Promise<void> {
   // View count derived from repo watchers — no API call needed
+}
+
+// ── Role Candidates ───────────────────────────────────────────────────────────
+
+export async function fetchCandidates(slug: string): Promise<RoleCandidate[]> {
+  const res = await fetch(`/api/businesses/${encodeURIComponent(slug)}/candidates`)
+  if (!res.ok) return []
+  return res.json()
+}
+
+export async function applyForRole(slug: string, role: string, pitch: string): Promise<RoleCandidate> {
+  const res = await fetch(`/api/businesses/${encodeURIComponent(slug)}/candidates`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role, pitch }),
+  })
+  if (!res.ok) throw new Error('Failed to apply for role')
+  return res.json()
+}
+
+export async function endorseCandidate(slug: string, candidateId: string): Promise<void> {
+  const res = await fetch(`/api/businesses/${encodeURIComponent(slug)}/candidates`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'endorse', candidateId }),
+  })
+  if (!res.ok) throw new Error('Failed to endorse')
+}
+
+export async function updateCandidateStatus(slug: string, candidateId: string, status: string): Promise<void> {
+  const res = await fetch(`/api/businesses/${encodeURIComponent(slug)}/candidates`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'updateStatus', candidateId, status }),
+  })
+  if (!res.ok) throw new Error('Failed to update status')
+}
+
+// ── Validations ───────────────────────────────────────────────────────────────
+
+export async function fetchValidations(slug: string): Promise<Validation[]> {
+  const res = await fetch(`/api/businesses/${encodeURIComponent(slug)}/validations`)
+  if (!res.ok) return []
+  return res.json()
+}
+
+export async function addValidation(slug: string, section: string, status: 'validated' | 'disputed', evidence: string, field?: string): Promise<Validation> {
+  const res = await fetch(`/api/businesses/${encodeURIComponent(slug)}/validations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ section, status, evidence, field }),
+  })
+  if (!res.ok) throw new Error('Failed to add validation')
+  return res.json()
+}
+
+// ── Investment Interest ───────────────────────────────────────────────────────
+
+export async function fetchInvestments(slug: string): Promise<InvestmentInterest[]> {
+  const res = await fetch(`/api/businesses/${encodeURIComponent(slug)}/invest`)
+  if (!res.ok) return []
+  return res.json()
+}
+
+export async function expressInvestmentInterest(slug: string, amount: string, terms: string, message: string): Promise<InvestmentInterest> {
+  const res = await fetch(`/api/businesses/${encodeURIComponent(slug)}/invest`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amount, terms, message }),
+  })
+  if (!res.ok) throw new Error('Failed to express investment interest')
+  return res.json()
+}
+
+// ── Venture Value ─────────────────────────────────────────────────────────────
+
+export async function fetchVentureValue(slug: string): Promise<VentureValue> {
+  const res = await fetch(`/api/businesses/${encodeURIComponent(slug)}/value`)
+  if (!res.ok) throw new Error('Failed to fetch venture value')
+  return res.json()
 }

@@ -198,6 +198,76 @@ export interface BusinessPlan {
   }
 }
 
+// ── Role Candidates ───────────────────────────────────────────────────────────
+export interface RoleCandidate {
+  id: string              // unique candidate entry ID
+  ventureId: string       // repo slug
+  role: string            // role title (e.g. "CTO", "Marketing Lead")
+  userId: string          // GitHub user ID
+  userLogin: string       // GitHub username
+  userName: string
+  userImage?: string
+  appliedAt: string       // ISO date
+  status: 'pending' | 'accepted' | 'rejected' | 'withdrawn'
+  pitch: string           // why they're a fit
+  endorsements: string[]  // user IDs who endorsed
+}
+
+// ── Validation (Wikipedia-style) ──────────────────────────────────────────────
+export interface Validation {
+  id: string
+  ventureId: string       // repo slug
+  section: string         // which section (e.g. "cover", "problemSolution.corePainPoint")
+  field?: string          // specific field within section
+  userId: string
+  userLogin: string
+  userName: string
+  userImage?: string
+  status: 'validated' | 'disputed'
+  evidence: string        // supporting evidence or reason for dispute
+  createdAt: string
+}
+
+// ── Investment Interest ───────────────────────────────────────────────────────
+export interface InvestmentInterest {
+  id: string
+  ventureId: string
+  investorId: string
+  investorLogin: string
+  investorName: string
+  investorImage?: string
+  amount: string          // investment amount offered
+  terms: string           // proposed terms
+  message: string         // note to founders
+  status: 'expressed' | 'in-discussion' | 'committed' | 'withdrawn'
+  createdAt: string
+}
+
+// ── Venture Value / Worthiness ────────────────────────────────────────────────
+export interface VentureValue {
+  ventureId: string
+  collaborationCount: number
+  validationScore: number   // validated - disputed
+  investmentInterest: number
+  candidateCount: number
+  commentCount: number
+  editCount: number
+  overallScore: number      // computed composite
+}
+
+// ── Contribution tracking ─────────────────────────────────────────────────────
+export interface Contribution {
+  userId: string
+  userLogin: string
+  userName: string
+  userImage?: string
+  edits: number
+  comments: number
+  validations: number
+  role?: string             // assigned role in this venture
+  joinedAt: string
+}
+
 // ── Edit history (from git commits) ───────────────────────────────────────────
 export interface EditRecord {
   id: string             // git commit SHA

@@ -1,7 +1,7 @@
 import yaml from 'js-yaml'
 import { getPublicOctokit, getAdminOctokit, GITHUB_ORG } from './github'
 import { generatePagesWorkflow, enableGitHubPages } from './pages-template'
-import type { BusinessPlan, VWUser, EditRecord, Comment, AdminStats, BusinessStage, ProductType } from '@/types'
+import type { BusinessPlan, VWUser, EditRecord, Comment, AdminStats, BusinessStage, ProductType, RoleCandidate, Validation, InvestmentInterest, VentureValue } from '@/types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -134,11 +134,13 @@ export async function createBusiness(
   const slug = slugify(data.cover.companyName) + '-' + Date.now().toString(36)
   const octokit = getAdminOctokit()
 
+  const isPublic = data.isPublic !== false // default to public if not specified
+
   await octokit.rest.repos.createInOrg({
     org: GITHUB_ORG,
     name: slug,
     description: `${data.cover.logoEmoji || '🚀'} ${data.cover.companyName} — ${data.cover.tagline}`,
-    visibility: 'public',
+    visibility: isPublic ? 'public' : 'private',
     has_issues: true,
     auto_init: false,
   })
@@ -151,7 +153,7 @@ export async function createBusiness(
     contributors: [userId],
     viewCount: 0,
     editCount: 0,
-    isPublic: true,
+    isPublic,
     isArchived: false,
     isFeatured: false,
     createdAt: new Date().toISOString(),
@@ -573,5 +575,193 @@ export async function getAdminStats(): Promise<AdminStats> {
     recentActivity: recentActivity.slice(0, 10),
     topContributors,
     monthlyGrowth: [],
+  }
+}
+
+// ── Role Candidates (stored in .venturewiki/candidates.yaml per repo) ────────
+
+async function readCandidatesYaml(slug: string): Promise<{ data: RoleCandidate[]; sha: string }> {
+  try {
+    const octokit = getAdminOctokit()
+    const { data } = await octokit.rest.repos.getContent({
+      owner: GITHUB_ORG, repo: slug, path: '.venturewiki/candidates.yaml',
+    })
+    if ('content' in data && data.type === 'file') {
+      return { data: (yaml.load(decodeContent(data.content)) as RoleCandidate[]) || [], sha: data.sha }
+    }
+  } catch {}
+  return { data: [], sha: '' }
+}
+
+async function writeCandidatesYaml(slug: string, candidates: RoleCandidate[], sha: string): Promise<void> {
+  const octokit = getAdminOctokit()
+  await octokit.rest.repos.createOrUpdateFileContents({
+    owner: GITHUB_ORG, repo: slug, path: '.venturewiki/candidates.yaml',
+    message: '👤 Update role candidates',
+    content: encodeContent(yaml.dump(candidates, { lineWidth: -1 })),
+    ...(sha ? { sha } : {}),
+  })
+}
+
+export async function getCandidates(slug: string): Promise<RoleCandidate[]> {
+  const { data } = await readCandidatesYaml(slug)
+  return data
+}
+
+export async function applyForRole(slug: string, candidate: Omit<RoleCandidate, 'id' | 'appliedAt' | 'status' | 'endorsements'>): Promise<RoleCandidate> {
+  const { data: candidates, sha } = await readCandidatesYaml(slug)
+  const entry: RoleCandidate = {
+    ...candidate,
+    id: `${candidate.userId}-${Date.now().toString(36)}`,
+    appliedAt: new Date().toISOString(),
+    status: 'pending',
+    endorsements: [],
+  }
+  candidates.push(entry)
+  await writeCandidatesYaml(slug, candidates, sha)
+  return entry
+}
+
+export async function endorseCandidate(slug: string, candidateId: string, endorserId: string): Promise<void> {
+  const { data: candidates, sha } = await readCandidatesYaml(slug)
+  const c = candidates.find(x => x.id === candidateId)
+  if (c && !c.endorsements.includes(endorserId)) {
+    c.endorsements.push(endorserId)
+    await writeCandidatesYaml(slug, candidates, sha)
+  }
+}
+
+export async function updateCandidateStatus(slug: string, candidateId: string, status: RoleCandidate['status']): Promise<void> {
+  const { data: candidates, sha } = await readCandidatesYaml(slug)
+  const c = candidates.find(x => x.id === candidateId)
+  if (c) {
+    c.status = status
+    await writeCandidatesYaml(slug, candidates, sha)
+  }
+}
+
+// ── Validations (stored in .venturewiki/validations.yaml per repo) ───────────
+
+async function readValidationsYaml(slug: string): Promise<{ data: Validation[]; sha: string }> {
+  try {
+    const octokit = getAdminOctokit()
+    const { data } = await octokit.rest.repos.getContent({
+      owner: GITHUB_ORG, repo: slug, path: '.venturewiki/validations.yaml',
+    })
+    if ('content' in data && data.type === 'file') {
+      return { data: (yaml.load(decodeContent(data.content)) as Validation[]) || [], sha: data.sha }
+    }
+  } catch {}
+  return { data: [], sha: '' }
+}
+
+async function writeValidationsYaml(slug: string, validations: Validation[], sha: string): Promise<void> {
+  const octokit = getAdminOctokit()
+  await octokit.rest.repos.createOrUpdateFileContents({
+    owner: GITHUB_ORG, repo: slug, path: '.venturewiki/validations.yaml',
+    message: '✅ Update validations',
+    content: encodeContent(yaml.dump(validations, { lineWidth: -1 })),
+    ...(sha ? { sha } : {}),
+  })
+}
+
+export async function getValidations(slug: string): Promise<Validation[]> {
+  const { data } = await readValidationsYaml(slug)
+  return data
+}
+
+export async function addValidation(slug: string, validation: Omit<Validation, 'id' | 'createdAt'>): Promise<Validation> {
+  const { data: validations, sha } = await readValidationsYaml(slug)
+  const entry: Validation = {
+    ...validation,
+    id: `${validation.userId}-${Date.now().toString(36)}`,
+    createdAt: new Date().toISOString(),
+  }
+  validations.push(entry)
+  await writeValidationsYaml(slug, validations, sha)
+  return entry
+}
+
+// ── Investment Interest (stored in .venturewiki/investments.yaml per repo) ───
+
+async function readInvestmentsYaml(slug: string): Promise<{ data: InvestmentInterest[]; sha: string }> {
+  try {
+    const octokit = getAdminOctokit()
+    const { data } = await octokit.rest.repos.getContent({
+      owner: GITHUB_ORG, repo: slug, path: '.venturewiki/investments.yaml',
+    })
+    if ('content' in data && data.type === 'file') {
+      return { data: (yaml.load(decodeContent(data.content)) as InvestmentInterest[]) || [], sha: data.sha }
+    }
+  } catch {}
+  return { data: [], sha: '' }
+}
+
+async function writeInvestmentsYaml(slug: string, investments: InvestmentInterest[], sha: string): Promise<void> {
+  const octokit = getAdminOctokit()
+  await octokit.rest.repos.createOrUpdateFileContents({
+    owner: GITHUB_ORG, repo: slug, path: '.venturewiki/investments.yaml',
+    message: '💰 Update investment interest',
+    content: encodeContent(yaml.dump(investments, { lineWidth: -1 })),
+    ...(sha ? { sha } : {}),
+  })
+}
+
+export async function getInvestments(slug: string): Promise<InvestmentInterest[]> {
+  const { data } = await readInvestmentsYaml(slug)
+  return data
+}
+
+export async function expressInvestmentInterest(slug: string, investment: Omit<InvestmentInterest, 'id' | 'createdAt' | 'status'>): Promise<InvestmentInterest> {
+  const { data: investments, sha } = await readInvestmentsYaml(slug)
+  const entry: InvestmentInterest = {
+    ...investment,
+    id: `${investment.investorId}-${Date.now().toString(36)}`,
+    createdAt: new Date().toISOString(),
+    status: 'expressed',
+  }
+  investments.push(entry)
+  await writeInvestmentsYaml(slug, investments, sha)
+  return entry
+}
+
+export async function updateInvestmentStatus(slug: string, investmentId: string, status: InvestmentInterest['status']): Promise<void> {
+  const { data: investments, sha } = await readInvestmentsYaml(slug)
+  const inv = investments.find(x => x.id === investmentId)
+  if (inv) {
+    inv.status = status
+    await writeInvestmentsYaml(slug, investments, sha)
+  }
+}
+
+// ── Venture Value / Worthiness ───────────────────────────────────────────────
+
+export async function getVentureValue(slug: string): Promise<VentureValue> {
+  const [candidates, validations, investments, comments] = await Promise.all([
+    getCandidates(slug),
+    getValidations(slug),
+    getInvestments(slug),
+    getComments(slug),
+  ])
+
+  const validatedCount = validations.filter(v => v.status === 'validated').length
+  const disputedCount = validations.filter(v => v.status === 'disputed').length
+  const validationScore = validatedCount - disputedCount
+
+  const plan = await readPlanYaml(slug)
+  const editCount = plan?.data?.editCount || 0
+
+  const collaborationCount = candidates.length + validations.length + investments.length + comments.length
+  const overallScore = (collaborationCount * 2) + (validationScore * 3) + (investments.length * 5) + editCount
+
+  return {
+    ventureId: slug,
+    collaborationCount,
+    validationScore,
+    investmentInterest: investments.length,
+    candidateCount: candidates.length,
+    commentCount: comments.length,
+    editCount,
+    overallScore,
   }
 }

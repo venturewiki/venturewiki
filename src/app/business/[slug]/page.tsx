@@ -7,12 +7,13 @@ import Image from 'next/image'
 import {
   Eye, GitBranch, Clock, Edit3, Star, Archive, ArrowLeft,
   Globe, Cpu, DollarSign, Users, Target, Map, MessageSquare,
-  ChevronRight, AlertTriangle, TrendingUp, Zap
+  ChevronRight, AlertTriangle, TrendingUp, Zap, UserPlus,
+  ShieldCheck, HandCoins, BarChart3
 } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
-import { fetchBusiness, incrementViewCount, toggleFeatured, fetchEditHistory, fetchComments, postComment } from '@/lib/api'
+import { fetchBusiness, incrementViewCount, toggleFeatured, fetchEditHistory, fetchComments, postComment, fetchCandidates, fetchValidations, fetchInvestments, fetchVentureValue } from '@/lib/api'
 import { cn, STAGE_LABELS, STAGE_COLORS, TYPE_ICONS, TYPE_LABELS, formatRelativeTime, formatNumber } from '@/lib/utils'
-import type { BusinessPlan, EditRecord, Comment } from '@/types'
+import type { BusinessPlan, EditRecord, Comment, RoleCandidate, Validation, InvestmentInterest, VentureValue } from '@/types'
 
 export default function BusinessPage() {
   const { slug }            = useParams<{ slug: string }>()
@@ -21,6 +22,10 @@ export default function BusinessPage() {
   const [business, setBusiness]     = useState<BusinessPlan | null>(null)
   const [edits, setEdits]           = useState<EditRecord[]>([])
   const [comments, setComments]     = useState<Comment[]>([])
+  const [candidates, setCandidates] = useState<RoleCandidate[]>([])
+  const [validations, setValidations] = useState<Validation[]>([])
+  const [investments, setInvestments] = useState<InvestmentInterest[]>([])
+  const [ventureValue, setVentureValue] = useState<VentureValue | null>(null)
   const [newComment, setNewComment] = useState('')
   const [activeTab, setActiveTab]   = useState('overview')
   const [loading, setLoading]       = useState(true)
@@ -34,6 +39,10 @@ export default function BusinessPage() {
         incrementViewCount(b.id)
         fetchEditHistory(b.id).then(setEdits)
         fetchComments(b.id).then(setComments)
+        fetchCandidates(b.id).then(setCandidates)
+        fetchValidations(b.id).then(setValidations)
+        fetchInvestments(b.id).then(setInvestments)
+        fetchVentureValue(b.id).then(setVentureValue).catch(() => {})
       }
     })
   }, [slug])
@@ -77,12 +86,15 @@ export default function BusinessPage() {
   const canEdit  = session && (session.user.role === 'editor' || isAdmin)
 
   const TABS = [
-    { id: 'overview',  label: 'Overview',        icon: Globe },
-    { id: 'product',   label: 'Product & GTM',   icon: Cpu },
-    { id: 'team',      label: 'Team & Roadmap',  icon: Users },
-    { id: 'financial', label: 'Financials',       icon: DollarSign },
-    { id: 'history',   label: `History (${edits.length})`, icon: GitBranch },
-    { id: 'discuss',   label: `Discussion (${comments.length})`, icon: MessageSquare },
+    { id: 'overview',    label: 'Overview',        icon: Globe },
+    { id: 'product',     label: 'Product & GTM',   icon: Cpu },
+    { id: 'team',        label: 'Team & Roadmap',  icon: Users },
+    { id: 'candidates',  label: `Candidates (${candidates.length})`, icon: UserPlus },
+    { id: 'validations', label: `Validations (${validations.length})`, icon: ShieldCheck },
+    { id: 'financial',   label: 'Financials',       icon: DollarSign },
+    { id: 'invest',      label: `Invest (${investments.length})`, icon: HandCoins },
+    { id: 'history',     label: `History (${edits.length})`, icon: GitBranch },
+    { id: 'discuss',     label: `Discussion (${comments.length})`, icon: MessageSquare },
   ]
 
   return (
@@ -568,6 +580,162 @@ export default function BusinessPage() {
                     </table>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* ── Tab: Candidates ────────────────────────────────── */}
+            {activeTab === 'candidates' && (
+              <div className="space-y-4 animate-fade-in">
+                <div className="section-card">
+                  <h2 className="font-display font-bold text-paper mb-4 flex items-center gap-2">
+                    <UserPlus className="w-4 h-4 text-accent" /> Role Candidates
+                  </h2>
+                  <p className="text-muted text-sm mb-4">
+                    People who have applied for open roles in this venture. Endorse candidates you think are a great fit.
+                  </p>
+                  {tr?.openRoles && (
+                    <div className="p-3 bg-accent/5 border border-accent/20 rounded-lg mb-4">
+                      <p className="text-xs text-accent font-medium uppercase tracking-wider mb-1">Open Roles</p>
+                      <p className="text-paper/80 text-sm">{tr.openRoles}</p>
+                    </div>
+                  )}
+                  {candidates.length === 0 ? (
+                    <p className="text-muted italic text-sm text-center py-8">No candidates yet — be the first to apply!</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {candidates.map(c => (
+                        <div key={c.id} className="flex items-start gap-3 p-3 bg-rule/20 rounded-lg">
+                          {c.userImage ? (
+                            <Image src={c.userImage} alt={c.userName} width={32} height={32} className="w-8 h-8 rounded-full shrink-0" />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent text-xs font-bold shrink-0">
+                              {c.userName[0]?.toUpperCase()}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-sm font-medium text-paper">{c.userName}</span>
+                              <span className="badge bg-accent/20 text-accent text-xs">{c.role}</span>
+                              <span className={cn('badge text-xs', {
+                                'bg-amber-900/60 text-amber-300': c.status === 'pending',
+                                'bg-emerald-900/60 text-emerald-300': c.status === 'accepted',
+                                'bg-red-900/60 text-red-300': c.status === 'rejected',
+                                'bg-slate-700 text-slate-300': c.status === 'withdrawn',
+                              })}>{c.status}</span>
+                            </div>
+                            {c.pitch && <p className="text-paper/70 text-sm">{c.pitch}</p>}
+                            <p className="text-muted text-xs mt-1">
+                              {c.endorsements.length} endorsement{c.endorsements.length !== 1 ? 's' : ''} · Applied {formatRelativeTime(c.appliedAt)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── Tab: Validations ──────────────────────────────────── */}
+            {activeTab === 'validations' && (
+              <div className="space-y-4 animate-fade-in">
+                <div className="section-card">
+                  <h2 className="font-display font-bold text-paper mb-4 flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-teal" /> Information Validations
+                  </h2>
+                  <p className="text-muted text-sm mb-4">
+                    Wikipedia-style validation: community members can verify or dispute information in this business plan.
+                  </p>
+                  {ventureValue && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                      <div className="bg-rule/20 rounded-lg p-3 text-center">
+                        <p className="text-xs text-muted mb-1">Validation Score</p>
+                        <p className={cn('font-display font-bold text-lg', ventureValue.validationScore >= 0 ? 'text-emerald-400' : 'text-danger')}>
+                          {ventureValue.validationScore >= 0 ? '+' : ''}{ventureValue.validationScore}
+                        </p>
+                      </div>
+                      <div className="bg-rule/20 rounded-lg p-3 text-center">
+                        <p className="text-xs text-muted mb-1">Collaborations</p>
+                        <p className="font-display font-bold text-lg text-accent">{ventureValue.collaborationCount}</p>
+                      </div>
+                      <div className="bg-rule/20 rounded-lg p-3 text-center">
+                        <p className="text-xs text-muted mb-1">Venture Score</p>
+                        <p className="font-display font-bold text-lg text-gold">{ventureValue.overallScore}</p>
+                      </div>
+                      <div className="bg-rule/20 rounded-lg p-3 text-center">
+                        <p className="text-xs text-muted mb-1">Investors</p>
+                        <p className="font-display font-bold text-lg text-teal">{ventureValue.investmentInterest}</p>
+                      </div>
+                    </div>
+                  )}
+                  {validations.length === 0 ? (
+                    <p className="text-muted italic text-sm text-center py-8">No validations yet — help validate this business plan!</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {validations.map(v => (
+                        <div key={v.id} className="flex items-start gap-3 p-3 bg-rule/20 rounded-lg">
+                          <div className={cn('w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs', v.status === 'validated' ? 'bg-emerald-900/60 text-emerald-300' : 'bg-red-900/60 text-red-300')}>
+                            {v.status === 'validated' ? '✓' : '✗'}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-sm font-medium text-paper">{v.userName}</span>
+                              <span className="badge bg-lead border border-rule text-muted text-xs">{v.section}{v.field ? ` → ${v.field}` : ''}</span>
+                            </div>
+                            <p className="text-paper/70 text-sm">{v.evidence}</p>
+                            <p className="text-muted text-xs mt-1">{formatRelativeTime(v.createdAt)}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── Tab: Investment ───────────────────────────────────── */}
+            {activeTab === 'invest' && (
+              <div className="space-y-4 animate-fade-in">
+                <div className="section-card">
+                  <h2 className="font-display font-bold text-paper mb-4 flex items-center gap-2">
+                    <HandCoins className="w-4 h-4 text-gold" /> Investment Interest
+                  </h2>
+                  <p className="text-muted text-sm mb-4">
+                    Public ventures are open for investment pitches. Anyone can express interest or pitch to investors.
+                  </p>
+                  {investments.length === 0 ? (
+                    <p className="text-muted italic text-sm text-center py-8">No investment interest yet — be the first investor!</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {investments.map(inv => (
+                        <div key={inv.id} className="flex items-start gap-3 p-3 bg-rule/20 rounded-lg">
+                          {inv.investorImage ? (
+                            <Image src={inv.investorImage} alt={inv.investorName} width={32} height={32} className="w-8 h-8 rounded-full shrink-0" />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-gold/20 flex items-center justify-center text-gold text-xs font-bold shrink-0">
+                              {inv.investorName[0]?.toUpperCase()}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-sm font-medium text-paper">{inv.investorName}</span>
+                              {inv.amount && <span className="badge bg-gold/20 text-gold text-xs">{inv.amount}</span>}
+                              <span className={cn('badge text-xs', {
+                                'bg-amber-900/60 text-amber-300': inv.status === 'expressed',
+                                'bg-blue-900/60 text-blue-300': inv.status === 'in-discussion',
+                                'bg-emerald-900/60 text-emerald-300': inv.status === 'committed',
+                                'bg-slate-700 text-slate-300': inv.status === 'withdrawn',
+                              })}>{inv.status}</span>
+                            </div>
+                            {inv.message && <p className="text-paper/70 text-sm">{inv.message}</p>}
+                            {inv.terms && <p className="text-muted text-xs mt-1">Terms: {inv.terms}</p>}
+                            <p className="text-muted text-xs mt-1">{formatRelativeTime(inv.createdAt)}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

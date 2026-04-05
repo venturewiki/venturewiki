@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { Plus, Zap, Globe, Bot, TrendingUp, ArrowRight, Filter } from 'lucide-react'

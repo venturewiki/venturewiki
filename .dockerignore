@@ -4,9 +4,5 @@ node_modules
 .next
 *.md
 .env*
-!.env.local.example
 docker-compose.yml
 .playwright-mcp
-firebase.json
-firestore.indexes.json
-firestore.rules

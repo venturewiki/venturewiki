@@ -46,8 +46,8 @@ export default function PrivacyPage() {
             <div className="space-y-4 text-sm">
               <p>
                 <span className="text-paper font-semibold">Account information.</span>{' '}
-                When you sign in via Google OAuth, we receive your name, email address, and
-                profile picture from Google. We store only what is needed to identify your
+                When you sign in via GitHub OAuth, we receive your username, email address, and
+                avatar from GitHub. We store only what is needed to identify your
                 account on VentureWiki.
               </p>
               <p>
@@ -136,8 +136,8 @@ export default function PrivacyPage() {
               </p>
               <ul className="list-disc list-inside space-y-2 pl-2 text-paper/75">
                 <li>
-                  <span className="text-paper">Google OAuth</span> — for authentication. Google's
-                  Privacy Policy governs data shared with Google.
+                  <span className="text-paper">GitHub OAuth</span> — for authentication. GitHub's
+                  Privacy Policy governs data shared with GitHub.
                 </li>
                 <li>
                   <span className="text-paper">GitHub</span> — our primary data store

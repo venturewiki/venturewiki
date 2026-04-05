@@ -1,5 +1,3 @@
-import type { BusinessPlan } from '@/types'
-
 /**
  * GitHub Actions workflow that builds a static HTML page from plan.yaml
  * and deploys it to GitHub Pages on every push.

@@ -83,7 +83,7 @@ export default function TermsPage() {
             </h2>
             <div className="space-y-3 text-sm">
               <p>
-                You must sign in via Google OAuth to create content on VentureWiki. You are
+                You must sign in via GitHub OAuth to create content on VentureWiki. You are
                 responsible for all activity that occurs under your account. You agree to:
               </p>
               <ul className="list-disc list-inside space-y-2 pl-2 text-paper/75">

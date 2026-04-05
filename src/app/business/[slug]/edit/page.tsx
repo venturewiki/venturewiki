@@ -1,7 +1,7 @@
 'use client'
 // Edit page re-uses the same full editor as /business/new
 // but pre-loads the existing business by ID and calls updateBusiness on submit.
-// The slug param here is actually the Firestore document ID.
+// The slug param here is the GitHub repo name.
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useSession }           from 'next-auth/react'

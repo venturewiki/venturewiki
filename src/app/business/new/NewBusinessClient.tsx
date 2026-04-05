@@ -109,6 +109,8 @@ export default function BusinessEditorPage() {
     if (!session) return
     setSaving(true)
     try {
+      // Convert radio string to boolean
+      data.isPublic = data.isPublic === 'true' || data.isPublic === true
       if (isNew) {
         const slug = await createBusiness(
           { ...data, createdBy: session.user.id }
@@ -170,6 +172,21 @@ export default function BusinessEditorPage() {
           {/* ── SECTION 1: Cover ─────────────────────────────────────── */}
           <SectionPanel {...SECTIONS[0]} open={!!openSections.cover} onToggle={() => toggle('cover')}>
             <div className="grid grid-cols-2 gap-4">
+              {/* Visibility toggle */}
+              <div className="col-span-2">
+                <Field label="Visibility" hint="Public ventures are visible to everyone. Private ventures are only visible to you and your collaborators.">
+                  <div className="flex gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input {...register('isPublic')} type="radio" value="true" defaultChecked className="accent-accent" />
+                      <span className="text-sm text-paper">🌐 Public</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input {...register('isPublic')} type="radio" value="false" className="accent-accent" />
+                      <span className="text-sm text-paper">🔒 Private</span>
+                    </label>
+                  </div>
+                </Field>
+              </div>
               <div className="col-span-2">
                 <Field label="Company Name *">
                   <Input reg={register('cover.companyName', { required: true })} placeholder="e.g. VentureWiki" />
