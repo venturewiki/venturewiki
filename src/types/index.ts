@@ -1,3 +1,7 @@
+// ── Subscription tiers ────────────────────────────────────────────────────────
+export type SubscriptionTier   = 'free' | 'pro' | 'enterprise'
+export type SubscriptionStatus = 'active' | 'past_due' | 'canceled' | 'trialing' | 'none'
+
 // ── User (backed by GitHub user profile) ──────────────────────────────────────
 export interface VWUser {
   id: string            // GitHub user ID (numeric string)
@@ -10,6 +14,12 @@ export interface VWUser {
   lastActiveAt: string
   businessesCreated: number
   editsCount: number
+  // ── Stripe subscription ──
+  stripeCustomerId?: string
+  subscriptionTier: SubscriptionTier
+  subscriptionStatus: SubscriptionStatus
+  subscriptionId?: string        // Stripe subscription ID
+  subscriptionExpiresAt?: string // ISO date
 }
 
 // ── Business Plan (mirrors the 5-page template) ───────────────────────────────

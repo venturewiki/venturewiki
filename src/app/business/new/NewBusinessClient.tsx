@@ -4,9 +4,10 @@ import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { toast } from 'sonner'
-import { Save, Plus, Trash2, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react'
+import { Save, Plus, Trash2, ArrowLeft, ChevronDown, ChevronUp, Sparkles, Loader2, Crown } from 'lucide-react'
+import yaml from 'js-yaml'
 import Navbar from '@/components/layout/Navbar'
-import { fetchBusiness, createBusiness, updateBusiness } from '@/lib/api'
+import { fetchBusiness, createBusiness, updateBusiness, generateVenturePlanAI, createCheckoutSession } from '@/lib/api'
 import { EMPTY_BUSINESS, cn } from '@/lib/utils'
 import type { BusinessPlan } from '@/types'
 
@@ -75,6 +76,8 @@ export default function BusinessEditorPage() {
   const [loading, setLoading]   = useState(!isNew)
   const [saving, setSaving]     = useState(false)
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({ cover: true })
+  const [aiPrompt, setAiPrompt]     = useState('')
+  const [aiGenerating, setAiGenerating] = useState(false)
 
   const { register, control, handleSubmit, reset, formState: { errors } } = useForm<any>({
     defaultValues: EMPTY_BUSINESS,
@@ -104,6 +107,45 @@ export default function BusinessEditorPage() {
   }, [session, router])
 
   const toggle = (id: string) => setOpenSections(p => ({ ...p, [id]: !p[id] }))
+
+  const isPro = session?.user?.role === 'admin' ||
+    (session?.user?.subscriptionTier === 'pro' &&
+     (session?.user?.subscriptionStatus === 'active' || session?.user?.subscriptionStatus === 'trialing'))
+
+  const handleAIGenerate = async () => {
+    if (!aiPrompt.trim()) {
+      toast.error('Describe your venture idea first')
+      return
+    }
+    setAiGenerating(true)
+    try {
+      const yamlStr = await generateVenturePlanAI(aiPrompt)
+      const parsed = yaml.load(yamlStr) as any
+      if (parsed) {
+        // Merge AI output with form, preserving meta fields
+        const merged = { ...EMPTY_BUSINESS, ...parsed }
+        reset(merged)
+        // Open all sections so user can review
+        setOpenSections(
+          SECTIONS.reduce((acc, s) => ({ ...acc, [s.id]: true }), {})
+        )
+        toast.success('AI plan generated! Review and edit below, then save.')
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'AI generation failed')
+    } finally {
+      setAiGenerating(false)
+    }
+  }
+
+  const handleUpgrade = async () => {
+    try {
+      const url = await createCheckoutSession('monthly')
+      window.location.href = url
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to start checkout')
+    }
+  }
 
   const onSubmit = async (data: any) => {
     if (!session) return
@@ -168,6 +210,62 @@ export default function BusinessEditorPage() {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+
+          {/* ── AI Venture Generator (Pro feature) ────────────────────── */}
+          {isNew && (
+            <div className="section-card border border-accent/30 bg-gradient-to-br from-accent/5 to-transparent">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles className="w-5 h-5 text-accent" />
+                <h2 className="font-display font-bold text-paper text-base">AI Venture Generator</h2>
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-accent/20 text-accent px-2 py-0.5 rounded-full ml-1">Pro</span>
+              </div>
+              {isPro ? (
+                <>
+                  <p className="text-muted text-sm mb-3">
+                    Describe your venture idea and Gemini Pro will generate a complete, investor-ready business plan.
+                  </p>
+                  <textarea
+                    value={aiPrompt}
+                    onChange={e => setAiPrompt(e.target.value)}
+                    placeholder="Describe your venture idea in detail — what problem it solves, who it's for, how it works, your background, target market, tech stack ideas, revenue model…&#10;&#10;The more detail you provide, the better the AI output."
+                    rows={5}
+                    className="input-base resize-none mb-3"
+                    maxLength={10000}
+                    disabled={aiGenerating}
+                  />
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleAIGenerate}
+                      disabled={aiGenerating || !aiPrompt.trim()}
+                      className="btn-primary"
+                    >
+                      {aiGenerating ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" /> Generating plan…</>
+                      ) : (
+                        <><Sparkles className="w-4 h-4" /> Generate with AI</>
+                      )}
+                    </button>
+                    <span className="text-xs text-muted">{aiPrompt.length}/10,000</span>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-muted text-sm mb-3">
+                    Upgrade to <span className="text-accent font-semibold">VentureWiki Pro</span> to use AI-powered venture plan generation.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={session ? handleUpgrade : () => router.push('/auth/signin')}
+                    className="btn-primary"
+                  >
+                    <Crown className="w-4 h-4" />
+                    {session ? 'Upgrade to Pro' : 'Sign in to upgrade'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── SECTION 1: Cover ─────────────────────────────────────── */}
           <SectionPanel {...SECTIONS[0]} open={!!openSections.cover} onToggle={() => toggle('cover')}>

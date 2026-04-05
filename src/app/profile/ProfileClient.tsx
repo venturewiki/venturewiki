@@ -4,10 +4,11 @@ import { useSession }          from 'next-auth/react'
 import { useRouter }           from 'next/navigation'
 import Image                   from 'next/image'
 import Link                    from 'next/link'
-import { Edit3, Globe, GitBranch, Clock, ArrowLeft } from 'lucide-react'
+import { Edit3, Globe, GitBranch, Clock, ArrowLeft, Crown, Sparkles, CreditCard } from 'lucide-react'
+import { toast }               from 'sonner'
 import Navbar                  from '@/components/layout/Navbar'
 import BusinessCard            from '@/components/business/BusinessCard'
-import { subscribeBusinesses } from '@/lib/api'
+import { subscribeBusinesses, createCheckoutSession, createPortalSession } from '@/lib/api'
 import { formatRelativeTime, formatNumber } from '@/lib/utils'
 import type { BusinessPlan }   from '@/types'
 
@@ -83,6 +84,65 @@ export default function ProfilePage() {
           <Link href="/business/new" className="btn-primary shrink-0">
             + New Business
           </Link>
+        </div>
+
+        {/* Subscription section */}
+        <div className="bg-lead border border-rule rounded-2xl p-6 mb-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Crown className="w-5 h-5 text-accent" />
+              <div>
+                <h2 className="font-display font-bold text-paper text-lg">
+                  {session.user.subscriptionTier === 'pro' ? 'VentureWiki Pro' : 'Free Plan'}
+                </h2>
+                <p className="text-muted text-sm">
+                  {session.user.subscriptionTier === 'pro' && session.user.subscriptionStatus === 'active'
+                    ? 'Active subscription — AI venture generation enabled'
+                    : session.user.subscriptionTier === 'pro' && session.user.subscriptionStatus === 'past_due'
+                    ? 'Payment past due — please update your billing'
+                    : 'Upgrade to unlock AI-powered venture plan generation'}
+                </p>
+              </div>
+            </div>
+            {session.user.subscriptionTier === 'pro' && session.user.subscriptionStatus === 'active' ? (
+              <button
+                onClick={async () => {
+                  try {
+                    const url = await createPortalSession()
+                    window.location.href = url
+                  } catch { toast.error('Failed to open billing portal') }
+                }}
+                className="btn-ghost text-sm"
+              >
+                <CreditCard className="w-4 h-4" /> Manage Billing
+              </button>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    try {
+                      const url = await createCheckoutSession('monthly')
+                      window.location.href = url
+                    } catch (e: any) { toast.error(e.message) }
+                  }}
+                  className="btn-primary text-sm"
+                >
+                  <Sparkles className="w-4 h-4" /> Pro — $19/mo
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      const url = await createCheckoutSession('yearly')
+                      window.location.href = url
+                    } catch (e: any) { toast.error(e.message) }
+                  }}
+                  className="btn-ghost text-sm border border-accent/30"
+                >
+                  $190/yr (save 17%)
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Created businesses */}

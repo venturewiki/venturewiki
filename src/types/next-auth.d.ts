@@ -1,5 +1,6 @@
 import 'next-auth'
 import 'next-auth/jwt'
+import type { SubscriptionTier, SubscriptionStatus } from '.'
 
 declare module 'next-auth' {
   interface Session {
@@ -11,6 +12,8 @@ declare module 'next-auth' {
       email: string
       image: string
       role:  'viewer' | 'editor' | 'admin'
+      subscriptionTier: SubscriptionTier
+      subscriptionStatus: SubscriptionStatus
     }
   }
 }

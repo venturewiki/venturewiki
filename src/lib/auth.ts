@@ -49,6 +49,8 @@ export const authOptions: NextAuthOptions = {
           const dbUser = await getUser(token.sub)
           if (dbUser) {
             session.user.role = dbUser.role
+            session.user.subscriptionTier = dbUser.subscriptionTier || 'free'
+            session.user.subscriptionStatus = dbUser.subscriptionStatus || 'none'
           }
         } catch {}
       }

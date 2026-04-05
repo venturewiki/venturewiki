@@ -235,3 +235,45 @@ export async function fetchVentureValue(slug: string): Promise<VentureValue> {
   if (!res.ok) throw new Error('Failed to fetch venture value')
   return res.json()
 }
+
+// ── Stripe Subscription ──────────────────────────────────────────────────────
+
+export async function createCheckoutSession(plan: 'monthly' | 'yearly'): Promise<string> {
+  const res = await fetch('/api/stripe/checkout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ plan }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Failed to create checkout session' }))
+    throw new Error(err.error)
+  }
+  const { url } = await res.json()
+  return url
+}
+
+export async function createPortalSession(): Promise<string> {
+  const res = await fetch('/api/stripe/portal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  })
+  if (!res.ok) throw new Error('Failed to create portal session')
+  const { url } = await res.json()
+  return url
+}
+
+// ── AI Venture Generation (Pro only) ─────────────────────────────────────────
+
+export async function generateVenturePlanAI(prompt: string): Promise<string> {
+  const res = await fetch('/api/ai/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'AI generation failed' }))
+    throw new Error(err.error)
+  }
+  const { yaml } = await res.json()
+  return yaml
+}

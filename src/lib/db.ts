@@ -439,6 +439,8 @@ export async function upsertUser(user: Partial<VWUser> & { id: string; login: st
     lastActiveAt: new Date().toISOString(),
     businessesCreated: 0,
     editsCount: 0,
+    subscriptionTier: 'free',
+    subscriptionStatus: 'none',
   }
   users.push(newUser)
   await writeUsersRegistry(users, sha)
@@ -452,6 +454,29 @@ export async function updateUserRole(id: string, role: VWUser['role']) {
     user.role = role
     await writeUsersRegistry(users, sha)
   }
+}
+
+export async function updateUserSubscription(
+  id: string,
+  sub: {
+    stripeCustomerId?: string
+    subscriptionTier: VWUser['subscriptionTier']
+    subscriptionStatus: VWUser['subscriptionStatus']
+    subscriptionId?: string
+    subscriptionExpiresAt?: string
+  }
+) {
+  const { users, sha } = await readUsersRegistry()
+  const user = users.find(u => u.id === id)
+  if (user) {
+    Object.assign(user, sub)
+    await writeUsersRegistry(users, sha)
+  }
+}
+
+export async function getUserByStripeCustomerId(customerId: string): Promise<VWUser | null> {
+  const { users } = await readUsersRegistry()
+  return users.find(u => u.stripeCustomerId === customerId) || null
 }
 
 // ── Edit History (from git commits on plan.yaml) ─────────────────────────────
