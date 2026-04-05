@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { stripe, PRICES, isStripeEnabled } from '@/lib/stripe'
+import { stripe, getProPrices, isStripeEnabled } from '@/lib/stripe'
 import { getUser } from '@/lib/db'
 
 export async function POST(req: NextRequest) {
@@ -15,10 +15,8 @@ export async function POST(req: NextRequest) {
   }
 
   const { plan } = await req.json()
-  const priceId = plan === 'yearly' ? PRICES.pro_yearly : PRICES.pro_monthly
-  if (!priceId) {
-    return NextResponse.json({ error: 'Price not configured' }, { status: 500 })
-  }
+  const prices = await getProPrices()
+  const priceId = plan === 'yearly' ? prices.yearly : prices.monthly
 
   const user = await getUser(session.user.id)
   const customerEmail = user?.email || session.user.email
