@@ -19,6 +19,7 @@ export default function HomePage() {
   const [loading, setLoading]       = useState(true)
   const [stageFilter, setStageFilter] = useState<string>('all')
   const [typeFilter, setTypeFilter]   = useState<string>('all')
+  const [featuredOnly, setFeaturedOnly] = useState(false)
   const [search, setSearch]           = useState('')
 
   useEffect(() => {
@@ -30,6 +31,7 @@ export default function HomePage() {
   }, [])
 
   const filtered = businesses.filter(b => {
+    if (featuredOnly && !b.isFeatured) return false
     if (stageFilter !== 'all' && b.cover.stage !== stageFilter) return false
     if (typeFilter  !== 'all' && b.cover.productType !== typeFilter) return false
     if (search) {
@@ -43,7 +45,7 @@ export default function HomePage() {
     return true
   })
 
-  const featured  = businesses.filter(b => b.isFeatured).slice(0, 3)
+  const featuredCount = businesses.filter(b => b.isFeatured).length
   const totalLive = businesses.filter(b => b.cover.stage === 'live' || b.cover.stage === 'scaling').length
 
   return (
@@ -110,21 +112,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Featured ──────────────────────────────────────────────────────── */}
-      {featured.length > 0 && (
-        <section className="border-b border-rule">
-          <div className="max-w-7xl mx-auto px-4 py-10">
-            <div className="flex items-center gap-2 mb-6">
-              <div className="w-1.5 h-1.5 rounded-full bg-gold" />
-              <h2 className="font-display font-bold text-paper text-lg">Featured Ventures</h2>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {featured.map(b => <BusinessCard key={b.id} business={b} featured />)}
-            </div>
-          </div>
-        </section>
-      )}
-
       {/* ── Directory ─────────────────────────────────────────────────────── */}
       <section id="directory" className="max-w-7xl mx-auto px-4 py-10">
         {/* Header + filters */}
@@ -145,8 +132,22 @@ export default function HomePage() {
           />
         </div>
 
-        {/* Stage filter pills */}
+        {/* Filter pills */}
         <div className="flex flex-wrap gap-2 mb-4">
+          <button
+            onClick={() => setFeaturedOnly(v => !v)}
+            className={`px-3 py-1 rounded-full text-xs font-medium transition-all border inline-flex items-center gap-1.5 ${
+              featuredOnly
+                ? 'bg-gold/90 text-ink border-gold'
+                : 'border-rule text-muted hover:text-paper hover:border-muted'
+            }`}
+            disabled={featuredCount === 0}
+            title={featuredCount === 0 ? 'No featured ventures yet' : undefined}
+          >
+            <span aria-hidden>★</span>
+            Featured{featuredCount > 0 ? ` (${featuredCount})` : ''}
+          </button>
+          <span className="text-rule mx-1">|</span>
           {STAGE_FILTERS.map(s => (
             <button
               key={s}
