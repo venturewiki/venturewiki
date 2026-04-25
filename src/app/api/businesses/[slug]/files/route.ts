@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { listVentureFiles, createVentureFile } from '@/lib/db'
+import { getUserOctokit } from '@/lib/github'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,8 +31,9 @@ export async function POST(
     return NextResponse.json({ error: 'name and content required' }, { status: 400 })
   }
 
+  const viewerOctokit = session.accessToken ? getUserOctokit(session.accessToken) : undefined
   try {
-    await createVentureFile(params.slug, name, content, `Add ${name} via VentureWiki`)
+    await createVentureFile(params.slug, name, content, `Add ${name} via VentureWiki`, viewerOctokit)
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Failed to create file' }, { status: 400 })
   }

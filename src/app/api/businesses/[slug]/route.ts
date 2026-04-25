@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getBusinessBySlug, updateBusiness, resolveBusinessOwner } from '@/lib/db'
-import { GITHUB_ORG } from '@/lib/github'
+import { GITHUB_ORG, getUserOctokit } from '@/lib/github'
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit'
 
 export const dynamic = 'force-dynamic'
@@ -36,8 +36,10 @@ export async function PUT(
   const { data, editSummary } = await req.json()
 
   let userId: string
+  let viewerOctokit
   if (session?.user?.id) {
     userId = session.user.id
+    if (session.accessToken) viewerOctokit = getUserOctokit(session.accessToken)
   } else {
     // Anonymous edits are only permitted on venturewiki-org repos (where the
     // admin token has rights). All other ventures require sign-in. Rate-limited.
@@ -60,7 +62,7 @@ export async function PUT(
   }
 
   try {
-    await updateBusiness(params.slug, data, userId, editSummary || 'Update business')
+    await updateBusiness(params.slug, data, userId, editSummary || 'Update business', viewerOctokit)
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Failed to update' }, { status: 500 })
   }

@@ -102,12 +102,22 @@ async function readPlanYaml(slug: string): Promise<{ data: any; sha: string; own
   }
 }
 
+// Picks the right Octokit for a write. The platform admin token can write
+// to repos in the venturewiki org; for any other owner the caller must pass
+// the viewer's OAuth-issued Octokit so GitHub's permission system enforces
+// who is allowed to commit.
+function pickWriteOctokit(owner: string, viewerOctokit?: Octokit): Octokit {
+  if (owner === GITHUB_ORG) return getAdminOctokit()
+  if (viewerOctokit) return viewerOctokit
+  throw new Error(`Sign in to edit ventures owned by ${owner}`)
+}
+
 async function writePlanYaml(
-  slug: string, plan: any, message: string, existingSha?: string
+  slug: string, plan: any, message: string, existingSha?: string, viewerOctokit?: Octokit,
 ): Promise<void> {
   const owner = await resolveBusinessOwner(slug)
   if (!owner) throw new Error('Business not found')
-  const octokit = getAdminOctokit()
+  const octokit = pickWriteOctokit(owner, viewerOctokit)
   await octokit.rest.repos.createOrUpdateFileContents({
     owner,
     repo: slug,
@@ -307,7 +317,7 @@ export async function getBusinessBySlug(slug: string): Promise<BusinessPlan | nu
 }
 
 export async function updateBusiness(
-  id: string, data: Partial<BusinessPlan>, userId: string, editSummary: string
+  id: string, data: Partial<BusinessPlan>, userId: string, editSummary: string, viewerOctokit?: Octokit,
 ): Promise<void> {
   const existing = await readPlanYaml(id)
   if (!existing) throw new Error('Business not found')
@@ -323,10 +333,10 @@ export async function updateBusiness(
     updated.contributors = [...(updated.contributors || []), userId]
   }
 
-  await writePlanYaml(id, updated, `📝 ${editSummary}`, existing.sha)
+  await writePlanYaml(id, updated, `📝 ${editSummary}`, existing.sha, viewerOctokit)
 
   const owner = existing.owner
-  const octokit = getAdminOctokit()
+  const octokit = pickWriteOctokit(owner, viewerOctokit)
   try {
     const { data: readmeFile } = await octokit.rest.repos.getContent({
       owner,
@@ -583,11 +593,16 @@ export async function getEditHistory(businessId: string): Promise<EditRecord[]> 
 
 // ── Comments (GitHub Issues as discussion threads) ───────────────────────────
 
-async function getOrCreateDiscussionIssue(repoSlug: string): Promise<{ owner: string; issueNumber: number }> {
+async function getOrCreateDiscussionIssue(repoSlug: string, viewerOctokit?: Octokit): Promise<{ owner: string; issueNumber: number }> {
   const owner = await resolveBusinessOwner(repoSlug)
   if (!owner) throw new Error('Business not found')
-  const octokit = getAdminOctokit()
-  const { data: issues } = await octokit.rest.issues.listForRepo({
+  // Read-side: prefer admin token for venturewiki org, else viewer token if
+  // we have it, else fall back to admin (which will 404 for private cross-owner
+  // repos — that's fine, it just means no comments visible).
+  const reader = owner === GITHUB_ORG
+    ? getAdminOctokit()
+    : (viewerOctokit ?? getAdminOctokit())
+  const { data: issues } = await reader.rest.issues.listForRepo({
     owner,
     repo: repoSlug,
     labels: 'discussion',
@@ -596,7 +611,9 @@ async function getOrCreateDiscussionIssue(repoSlug: string): Promise<{ owner: st
   })
   if (issues.length > 0) return { owner, issueNumber: issues[0].number }
 
-  const { data: issue } = await octokit.rest.issues.create({
+  // Write-side: pick the right token strictly.
+  const writer = pickWriteOctokit(owner, viewerOctokit)
+  const { data: issue } = await writer.rest.issues.create({
     owner,
     repo: repoSlug,
     title: '💬 Discussion — Leave your feedback',
@@ -606,9 +623,9 @@ async function getOrCreateDiscussionIssue(repoSlug: string): Promise<{ owner: st
   return { owner, issueNumber: issue.number }
 }
 
-export async function addComment(data: Omit<Comment, 'id' | 'createdAt'>): Promise<string> {
-  const octokit = getAdminOctokit()
-  const { owner, issueNumber } = await getOrCreateDiscussionIssue(data.businessId)
+export async function addComment(data: Omit<Comment, 'id' | 'createdAt'>, viewerOctokit?: Octokit): Promise<string> {
+  const { owner, issueNumber } = await getOrCreateDiscussionIssue(data.businessId, viewerOctokit)
+  const octokit = pickWriteOctokit(owner, viewerOctokit)
   const body = data.section
     ? `**Re: ${data.section}**\n\n${data.content}`
     : data.content
@@ -733,10 +750,10 @@ async function readCandidatesYaml(slug: string): Promise<{ data: RoleCandidate[]
   return { data: [], sha: '' }
 }
 
-async function writeCandidatesYaml(slug: string, candidates: RoleCandidate[], sha: string): Promise<void> {
+async function writeCandidatesYaml(slug: string, candidates: RoleCandidate[], sha: string, viewerOctokit?: Octokit): Promise<void> {
   const owner = await resolveBusinessOwner(slug)
   if (!owner) throw new Error('Business not found')
-  const octokit = getAdminOctokit()
+  const octokit = pickWriteOctokit(owner, viewerOctokit)
   await octokit.rest.repos.createOrUpdateFileContents({
     owner, repo: slug, path: '.venturewiki/candidates.yaml',
     message: '👤 Update role candidates',
@@ -750,7 +767,7 @@ export async function getCandidates(slug: string): Promise<RoleCandidate[]> {
   return data
 }
 
-export async function applyForRole(slug: string, candidate: Omit<RoleCandidate, 'id' | 'appliedAt' | 'status' | 'endorsements'>): Promise<RoleCandidate> {
+export async function applyForRole(slug: string, candidate: Omit<RoleCandidate, 'id' | 'appliedAt' | 'status' | 'endorsements'>, viewerOctokit?: Octokit): Promise<RoleCandidate> {
   const { data: candidates, sha } = await readCandidatesYaml(slug)
   const entry: RoleCandidate = {
     ...candidate,
@@ -760,25 +777,25 @@ export async function applyForRole(slug: string, candidate: Omit<RoleCandidate, 
     endorsements: [],
   }
   candidates.push(entry)
-  await writeCandidatesYaml(slug, candidates, sha)
+  await writeCandidatesYaml(slug, candidates, sha, viewerOctokit)
   return entry
 }
 
-export async function endorseCandidate(slug: string, candidateId: string, endorserId: string): Promise<void> {
+export async function endorseCandidate(slug: string, candidateId: string, endorserId: string, viewerOctokit?: Octokit): Promise<void> {
   const { data: candidates, sha } = await readCandidatesYaml(slug)
   const c = candidates.find(x => x.id === candidateId)
   if (c && !c.endorsements.includes(endorserId)) {
     c.endorsements.push(endorserId)
-    await writeCandidatesYaml(slug, candidates, sha)
+    await writeCandidatesYaml(slug, candidates, sha, viewerOctokit)
   }
 }
 
-export async function updateCandidateStatus(slug: string, candidateId: string, status: RoleCandidate['status']): Promise<void> {
+export async function updateCandidateStatus(slug: string, candidateId: string, status: RoleCandidate['status'], viewerOctokit?: Octokit): Promise<void> {
   const { data: candidates, sha } = await readCandidatesYaml(slug)
   const c = candidates.find(x => x.id === candidateId)
   if (c) {
     c.status = status
-    await writeCandidatesYaml(slug, candidates, sha)
+    await writeCandidatesYaml(slug, candidates, sha, viewerOctokit)
   }
 }
 
@@ -799,10 +816,10 @@ async function readValidationsYaml(slug: string): Promise<{ data: Validation[]; 
   return { data: [], sha: '' }
 }
 
-async function writeValidationsYaml(slug: string, validations: Validation[], sha: string): Promise<void> {
+async function writeValidationsYaml(slug: string, validations: Validation[], sha: string, viewerOctokit?: Octokit): Promise<void> {
   const owner = await resolveBusinessOwner(slug)
   if (!owner) throw new Error('Business not found')
-  const octokit = getAdminOctokit()
+  const octokit = pickWriteOctokit(owner, viewerOctokit)
   await octokit.rest.repos.createOrUpdateFileContents({
     owner, repo: slug, path: '.venturewiki/validations.yaml',
     message: '✅ Update validations',
@@ -816,7 +833,7 @@ export async function getValidations(slug: string): Promise<Validation[]> {
   return data
 }
 
-export async function addValidation(slug: string, validation: Omit<Validation, 'id' | 'createdAt'>): Promise<Validation> {
+export async function addValidation(slug: string, validation: Omit<Validation, 'id' | 'createdAt'>, viewerOctokit?: Octokit): Promise<Validation> {
   const { data: validations, sha } = await readValidationsYaml(slug)
   const entry: Validation = {
     ...validation,
@@ -824,7 +841,7 @@ export async function addValidation(slug: string, validation: Omit<Validation, '
     createdAt: new Date().toISOString(),
   }
   validations.push(entry)
-  await writeValidationsYaml(slug, validations, sha)
+  await writeValidationsYaml(slug, validations, sha, viewerOctokit)
   return entry
 }
 
@@ -845,10 +862,10 @@ async function readInvestmentsYaml(slug: string): Promise<{ data: InvestmentInte
   return { data: [], sha: '' }
 }
 
-async function writeInvestmentsYaml(slug: string, investments: InvestmentInterest[], sha: string): Promise<void> {
+async function writeInvestmentsYaml(slug: string, investments: InvestmentInterest[], sha: string, viewerOctokit?: Octokit): Promise<void> {
   const owner = await resolveBusinessOwner(slug)
   if (!owner) throw new Error('Business not found')
-  const octokit = getAdminOctokit()
+  const octokit = pickWriteOctokit(owner, viewerOctokit)
   await octokit.rest.repos.createOrUpdateFileContents({
     owner, repo: slug, path: '.venturewiki/investments.yaml',
     message: '💰 Update investment interest',
@@ -862,7 +879,7 @@ export async function getInvestments(slug: string): Promise<InvestmentInterest[]
   return data
 }
 
-export async function expressInvestmentInterest(slug: string, investment: Omit<InvestmentInterest, 'id' | 'createdAt' | 'status'>): Promise<InvestmentInterest> {
+export async function expressInvestmentInterest(slug: string, investment: Omit<InvestmentInterest, 'id' | 'createdAt' | 'status'>, viewerOctokit?: Octokit): Promise<InvestmentInterest> {
   const { data: investments, sha } = await readInvestmentsYaml(slug)
   const entry: InvestmentInterest = {
     ...investment,
@@ -871,16 +888,16 @@ export async function expressInvestmentInterest(slug: string, investment: Omit<I
     status: 'expressed',
   }
   investments.push(entry)
-  await writeInvestmentsYaml(slug, investments, sha)
+  await writeInvestmentsYaml(slug, investments, sha, viewerOctokit)
   return entry
 }
 
-export async function updateInvestmentStatus(slug: string, investmentId: string, status: InvestmentInterest['status']): Promise<void> {
+export async function updateInvestmentStatus(slug: string, investmentId: string, status: InvestmentInterest['status'], viewerOctokit?: Octokit): Promise<void> {
   const { data: investments, sha } = await readInvestmentsYaml(slug)
   const inv = investments.find(x => x.id === investmentId)
   if (inv) {
     inv.status = status
-    await writeInvestmentsYaml(slug, investments, sha)
+    await writeInvestmentsYaml(slug, investments, sha, viewerOctokit)
   }
 }
 
@@ -977,11 +994,12 @@ export async function createVentureFile(
   filePath: string,
   content: string,
   message: string,
+  viewerOctokit?: Octokit,
 ): Promise<void> {
   validateVentureFilename(filePath)
   const owner = await resolveBusinessOwner(slug)
   if (!owner) throw new Error('Business not found')
-  const octokit = getAdminOctokit()
+  const octokit = pickWriteOctokit(owner, viewerOctokit)
   await octokit.rest.repos.createOrUpdateFileContents({
     owner,
     repo: slug,
