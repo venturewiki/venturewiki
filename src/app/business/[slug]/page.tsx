@@ -15,7 +15,7 @@ import { fetchBusiness, incrementViewCount, toggleFeatured, fetchEditHistory, fe
 import { useCallback } from 'react'
 import dynamic from 'next/dynamic'
 const ReactMarkdown = dynamic(() => import('react-markdown'), { ssr: false })
-import { Dialog } from '@headlessui/react'
+import { Dialog, DialogBackdrop } from '@headlessui/react'
 import { cn, STAGE_LABELS, STAGE_COLORS, TYPE_ICONS, TYPE_LABELS, formatRelativeTime, formatNumber } from '@/lib/utils'
 import type { BusinessPlan, EditRecord, Comment, RoleCandidate, Validation, InvestmentInterest, VentureValue } from '@/types'
 
@@ -215,7 +215,7 @@ export default function BusinessPage() {
             {/* The rest of the file remains unchanged, so plan.yaml is always the main content */}
             {/* Modal for other files */}
             <Dialog open={modalOpen} onClose={() => setModalOpen(false)} className="fixed z-50 inset-0 flex items-center justify-center">
-              <Dialog.Overlay className="fixed inset-0 bg-black/60" />
+              <DialogBackdrop className="fixed inset-0 bg-black/60" />
               <div className="relative bg-ink border border-rule rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-auto p-6">
                 <button className="absolute top-2 right-2 text-muted hover:text-accent" onClick={() => setModalOpen(false)}>&times;</button>
                 <div className="font-bold text-accent mb-2 text-lg">{modalFile?.name}</div>
