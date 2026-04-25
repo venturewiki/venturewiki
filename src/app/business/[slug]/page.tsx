@@ -12,7 +12,9 @@ import {
   ShieldCheck, HandCoins, BarChart3, FileText, FilePlus, X
 } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
-import { fetchBusiness, incrementViewCount, toggleFeatured, fetchEditHistory, fetchComments, postComment, fetchCandidates, fetchValidations, fetchInvestments, fetchVentureValue, fetchVentureFiles, fetchVentureFile, createVentureFile, type VentureFile } from '@/lib/api'
+import { EditableSection } from '@/components/business/EditableSection'
+import { EditField, TextInput, TextArea, Selector, ArrayEditor } from '@/components/business/edit-fields'
+import { fetchBusiness, incrementViewCount, toggleFeatured, fetchEditHistory, fetchComments, postComment, fetchCandidates, fetchValidations, fetchInvestments, fetchVentureValue, fetchVentureFiles, fetchVentureFile, createVentureFile, updateBusiness, type VentureFile } from '@/lib/api'
 import { cn, STAGE_LABELS, STAGE_COLORS, TYPE_ICONS, TYPE_LABELS, formatRelativeTime, formatNumber } from '@/lib/utils'
 import type { BusinessPlan, EditRecord, Comment, RoleCandidate, Validation, InvestmentInterest, VentureValue } from '@/types'
 
@@ -71,6 +73,13 @@ export default function BusinessPage() {
 
   const selectTab = (id: string) => { setActiveTab(id); setActiveFile(null) }
   const selectFile = (path: string) => { setActiveFile(path) }
+
+  const savePatch = async (patch: Partial<BusinessPlan>) => {
+    if (!business) return
+    const updated = { ...business, ...patch } as BusinessPlan
+    await updateBusiness(business.id, updated, 'Inline edit via venture page')
+    setBusiness(updated)
+  }
 
   const [addFileOpen, setAddFileOpen] = useState(false)
   const [newFileName, setNewFileName] = useState('')
@@ -245,60 +254,121 @@ export default function BusinessPage() {
           {/* ── Main column ────────────────────────────────────────────── */}
           <main className="min-w-0">
 
-            {/* Title row */}
-            <div className="flex items-start gap-4 mb-5">
-              <div
-                className="w-14 h-14 rounded-xl flex items-center justify-center text-3xl shrink-0 mt-0.5"
-                style={{ background: `${cover.accentColor || '#E8622A'}20` }}
-              >
-                {cover.logoEmoji || '🚀'}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-2 mb-1">
-                  <h1 className="font-display text-2xl md:text-3xl font-bold text-paper leading-tight">
-                    {cover.companyName}
-                  </h1>
-                  {business.isFeatured && <Star className="w-5 h-5 text-gold fill-gold shrink-0" />}
-                </div>
-                {cover.tagline && (
-                  <p className="text-paper/60 text-base leading-relaxed">{cover.tagline}</p>
-                )}
-                <div className="flex flex-wrap items-center gap-2 mt-2">
-                  <span className={cn('badge', STAGE_COLORS[cover.stage])}>
-                    {STAGE_LABELS[cover.stage]}
-                  </span>
-                  <span className="badge bg-slate/30 text-paper/60">
-                    {TYPE_ICONS[cover.productType]} {TYPE_LABELS[cover.productType]}
-                  </span>
-                  {cover.industryVertical && (
-                    <span className="badge bg-lead border border-rule text-muted">
-                      {cover.industryVertical}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-2 shrink-0">
-                {canEdit && (
-                  <Link
-                    href={`/business/${slug}/edit`}
-                    className="btn-outline"
+            {/* Title row — inline-editable cover */}
+            <EditableSection
+              canEdit={canEdit}
+              value={cover}
+              className="mb-5"
+              onSave={async (next) => savePatch({ cover: next })}
+              header={
+                <div className="flex items-start gap-4">
+                  <div
+                    className="w-14 h-14 rounded-xl flex items-center justify-center text-3xl shrink-0 mt-0.5"
+                    style={{ background: `${cover.accentColor || '#E8622A'}20` }}
                   >
-                    <Edit3 className="w-4 h-4" /> Edit
-                  </Link>
-                )}
-                {isAdmin && (
-                  <button
-                    onClick={() => toggleFeatured(business.id, !business.isFeatured)}
-                    className={cn('btn-ghost', business.isFeatured && 'text-gold')}
-                    title="Toggle featured"
-                  >
-                    <Star className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            </div>
+                    {cover.logoEmoji || '🚀'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <h1 className="font-display text-2xl md:text-3xl font-bold text-paper leading-tight">
+                        {cover.companyName}
+                      </h1>
+                      {business.isFeatured && <Star className="w-5 h-5 text-gold fill-gold shrink-0" />}
+                      {isAdmin && (
+                        <button
+                          onClick={() => toggleFeatured(business.id, !business.isFeatured)}
+                          className={cn('btn-ghost px-2', business.isFeatured && 'text-gold')}
+                          title="Toggle featured"
+                        >
+                          <Star className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    {cover.tagline && (
+                      <p className="text-paper/60 text-base leading-relaxed">{cover.tagline}</p>
+                    )}
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      <span className={cn('badge', STAGE_COLORS[cover.stage])}>{STAGE_LABELS[cover.stage]}</span>
+                      <span className="badge bg-slate/30 text-paper/60">
+                        {TYPE_ICONS[cover.productType]} {TYPE_LABELS[cover.productType]}
+                      </span>
+                      {cover.industryVertical && (
+                        <span className="badge bg-lead border border-rule text-muted">{cover.industryVertical}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              }
+              view={() => null /* header already contains the view */}
+              edit={(draft, set) => (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2 pt-4 border-t border-rule/50">
+                  <EditField label="Company Name">
+                    <TextInput value={draft.companyName} onChange={v => set({ ...draft, companyName: v })} placeholder="Acme Corp" />
+                  </EditField>
+                  <EditField label="Logo Emoji">
+                    <TextInput value={draft.logoEmoji} onChange={v => set({ ...draft, logoEmoji: v })} placeholder="🚀" />
+                  </EditField>
+                  <div className="sm:col-span-2">
+                    <EditField label="Tagline">
+                      <TextInput value={draft.tagline} onChange={v => set({ ...draft, tagline: v })} placeholder="One sentence that defines your product" />
+                    </EditField>
+                  </div>
+                  <EditField label="Stage">
+                    <Selector
+                      value={draft.stage}
+                      onChange={v => set({ ...draft, stage: v as any })}
+                      options={[
+                        { value: 'idea', label: 'Idea' },
+                        { value: 'mvp', label: 'MVP' },
+                        { value: 'beta', label: 'Beta' },
+                        { value: 'live', label: 'Live' },
+                        { value: 'scaling', label: 'Scaling' },
+                        { value: 'exited', label: 'Exited' },
+                      ]}
+                    />
+                  </EditField>
+                  <EditField label="Product Type">
+                    <Selector
+                      value={draft.productType}
+                      onChange={v => set({ ...draft, productType: v as any })}
+                      options={[
+                        { value: 'web-app', label: 'Web App' },
+                        { value: 'website', label: 'Website' },
+                        { value: 'ai-agent', label: 'AI Agent' },
+                        { value: 'api', label: 'API Product' },
+                        { value: 'hybrid', label: 'Hybrid' },
+                        { value: 'other', label: 'Other' },
+                      ]}
+                    />
+                  </EditField>
+                  <EditField label="Industry Vertical">
+                    <TextInput value={draft.industryVertical} onChange={v => set({ ...draft, industryVertical: v })} placeholder="FinTech, HealthTech…" />
+                  </EditField>
+                  <EditField label="Headquarters">
+                    <TextInput value={draft.headquarters} onChange={v => set({ ...draft, headquarters: v })} placeholder="New York, NY" />
+                  </EditField>
+                  <EditField label="Funding Stage">
+                    <Selector
+                      value={draft.fundingStage}
+                      onChange={v => set({ ...draft, fundingStage: v as any })}
+                      options={[
+                        { value: 'bootstrapped', label: 'Bootstrapped' },
+                        { value: 'pre-seed', label: 'Pre-Seed' },
+                        { value: 'seed', label: 'Seed' },
+                        { value: 'series-a', label: 'Series A' },
+                        { value: 'series-b+', label: 'Series B+' },
+                      ]}
+                    />
+                  </EditField>
+                  <EditField label="Website URL">
+                    <TextInput value={draft.websiteUrl} onChange={v => set({ ...draft, websiteUrl: v })} placeholder="https://" />
+                  </EditField>
+                  <EditField label="Accent Color">
+                    <input type="color" value={draft.accentColor || '#E8622A'} onChange={e => set({ ...draft, accentColor: e.target.value })} className="h-10 w-full rounded-lg cursor-pointer bg-transparent border border-rule p-1" />
+                  </EditField>
+                </div>
+              )}
+            />
 
             {/* Stats row */}
             <div className="flex items-center gap-4 mb-6 text-xs text-muted pb-4 border-b border-rule">
@@ -337,105 +407,246 @@ export default function BusinessPage() {
             {!activeFile && activeTab === 'overview' && (
               <div className="space-y-6 animate-fade-in">
                 {/* Mission / Vision */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {[
-                    { label: 'Mission', value: cover.mission, color: 'border-accent' },
-                    { label: 'Vision',  value: cover.vision,  color: 'border-teal' },
-                  ].map(item => (
-                    <div key={item.label} className={cn('section-card border-l-2 pl-5', item.color)}>
-                      <p className="text-xs uppercase tracking-widest text-muted mb-2 font-mono">{item.label}</p>
-                      <p className="text-paper/80 text-sm leading-relaxed">{item.value || <span className="text-muted italic">Not specified</span>}</p>
+                <EditableSection
+                  canEdit={canEdit}
+                  value={{ mission: cover.mission || '', vision: cover.vision || '' }}
+                  onSave={async (next) => savePatch({ cover: { ...cover, mission: next.mission, vision: next.vision } })}
+                  header={<h2 className="font-display font-bold text-paper text-base">Mission &amp; Vision</h2>}
+                  view={(v) => (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="border-l-2 border-accent pl-5">
+                        <p className="text-xs uppercase tracking-widest text-muted mb-2 font-mono">Mission</p>
+                        <p className="text-paper/80 text-sm leading-relaxed">{v.mission || <span className="text-muted italic">Not specified</span>}</p>
+                      </div>
+                      <div className="border-l-2 border-teal pl-5">
+                        <p className="text-xs uppercase tracking-widest text-muted mb-2 font-mono">Vision</p>
+                        <p className="text-paper/80 text-sm leading-relaxed">{v.vision || <span className="text-muted italic">Not specified</span>}</p>
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  )}
+                  edit={(draft, set) => (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <EditField label="Mission">
+                        <TextArea value={draft.mission} onChange={v => set({ ...draft, mission: v })} placeholder="For whom, doing what, and why it matters" rows={4} />
+                      </EditField>
+                      <EditField label="Vision">
+                        <TextArea value={draft.vision} onChange={v => set({ ...draft, vision: v })} placeholder="Where you're going in 5 years" rows={4} />
+                      </EditField>
+                    </div>
+                  )}
+                />
 
                 {/* Problem */}
-                <div className="section-card">
-                  <h2 className="font-display font-bold text-paper mb-4 flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 text-accent" /> The Problem
-                  </h2>
-                  <div className="accent-bar mb-4">
-                    <p className="text-paper/80 text-sm leading-relaxed font-medium">
-                      {ps?.corePainPoint || <span className="text-muted italic">Not specified</span>}
-                    </p>
-                  </div>
-                  {ps?.painDimensions && (
-                    <table className="wiki-table">
-                      <tbody>
-                        {Object.entries({
-                          'Who feels this': ps.painDimensions.who,
-                          'Frequency':      ps.painDimensions.frequency,
-                          'Workarounds':    ps.painDimensions.currentWorkarounds,
-                          'Cost of pain':   ps.painDimensions.costOfProblem,
-                          'Urgency':        ps.painDimensions.urgencyLevel,
-                        }).filter(([,v]) => v).map(([k, v]) => (
-                          <tr key={k}><td className="w-36 text-muted font-medium">{k}</td><td>{v}</td></tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-
-                {/* Solution */}
-                <div className="section-card">
-                  <h2 className="font-display font-bold text-paper mb-4 flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-teal" /> The Solution
-                  </h2>
-                  {ps?.solutionOneLiner && (
-                    <p className="text-paper/80 text-base leading-relaxed mb-4 font-medium">
-                      {ps.solutionOneLiner}
-                    </p>
-                  )}
-                  {ps?.features?.filter(f => f.feature).length > 0 && (
-                    <table className="wiki-table">
-                      <thead><tr>
-                        <th>Feature</th><th>Benefit</th><th>Tech Layer</th>
-                      </tr></thead>
-                      <tbody>
-                        {ps.features.filter(f => f.feature).map((f, i) => (
-                          <tr key={i}>
-                            <td className="font-medium text-paper/90">{f.feature}</td>
-                            <td>{f.benefit}</td>
-                            <td><code className="text-xs bg-rule/50 px-1.5 py-0.5 rounded font-mono text-teal">{f.techLayer}</code></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                  {ps?.unfairAdvantage && (
-                    <div className="mt-4 p-3 bg-teal/5 border border-teal/20 rounded-lg">
-                      <p className="text-xs text-teal font-medium uppercase tracking-wider mb-1">Unfair Advantage</p>
-                      <p className="text-paper/80 text-sm">{ps.unfairAdvantage}</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Market */}
-                <div className="section-card">
-                  <h2 className="font-display font-bold text-paper mb-4 flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-gold" /> Market Opportunity
-                  </h2>
-                  <div className="grid grid-cols-3 gap-3 mb-4">
-                    {[
-                      { label: 'TAM', value: ps?.market?.tamSize, color: 'text-gold' },
-                      { label: 'SAM', value: ps?.market?.samSize, color: 'text-accent' },
-                      { label: 'SOM', value: ps?.market?.somSize, color: 'text-teal' },
-                    ].map(m => (
-                      <div key={m.label} className="bg-rule/30 rounded-lg p-3 text-center">
-                        <p className="text-xs text-muted mb-1">{m.label}</p>
-                        <p className={cn('font-display font-bold text-lg', m.color)}>
-                          {m.value || '—'}
+                <EditableSection
+                  canEdit={canEdit}
+                  value={{
+                    corePainPoint: ps?.corePainPoint || '',
+                    painDimensions: {
+                      who: ps?.painDimensions?.who || '',
+                      frequency: ps?.painDimensions?.frequency || '',
+                      currentWorkarounds: ps?.painDimensions?.currentWorkarounds || '',
+                      costOfProblem: ps?.painDimensions?.costOfProblem || '',
+                      urgencyLevel: ps?.painDimensions?.urgencyLevel || '',
+                    },
+                  }}
+                  onSave={async (next) => savePatch({
+                    problemSolution: { ...ps, corePainPoint: next.corePainPoint, painDimensions: next.painDimensions } as any,
+                  })}
+                  header={
+                    <h2 className="font-display font-bold text-paper flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-accent" /> The Problem
+                    </h2>
+                  }
+                  view={(v) => (
+                    <>
+                      <div className="accent-bar mb-4">
+                        <p className="text-paper/80 text-sm leading-relaxed font-medium">
+                          {v.corePainPoint || <span className="text-muted italic">Not specified</span>}
                         </p>
                       </div>
-                    ))}
-                  </div>
-                  {ps?.whyNow && (
-                    <div className="p-3 bg-gold/5 border border-gold/20 rounded-lg">
-                      <p className="text-xs text-gold font-medium uppercase tracking-wider mb-1">Why Now</p>
-                      <p className="text-paper/80 text-sm">{ps.whyNow}</p>
+                      {Object.values(v.painDimensions).some(Boolean) && (
+                        <table className="wiki-table">
+                          <tbody>
+                            {([
+                              ['Who feels this', v.painDimensions.who],
+                              ['Frequency', v.painDimensions.frequency],
+                              ['Workarounds', v.painDimensions.currentWorkarounds],
+                              ['Cost of pain', v.painDimensions.costOfProblem],
+                              ['Urgency', v.painDimensions.urgencyLevel],
+                            ] as const).filter(([, val]) => val).map(([k, val]) => (
+                              <tr key={k}><td className="w-36 text-muted font-medium">{k}</td><td>{val}</td></tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </>
+                  )}
+                  edit={(draft, set) => (
+                    <div className="space-y-3">
+                      <EditField label="Core Pain Point">
+                        <TextArea value={draft.corePainPoint} onChange={v => set({ ...draft, corePainPoint: v })} placeholder="The exact pain…" rows={3} />
+                      </EditField>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <EditField label="Who feels this">
+                          <TextInput value={draft.painDimensions.who} onChange={v => set({ ...draft, painDimensions: { ...draft.painDimensions, who: v } })} placeholder="Persona" />
+                        </EditField>
+                        <EditField label="Frequency">
+                          <TextInput value={draft.painDimensions.frequency} onChange={v => set({ ...draft, painDimensions: { ...draft.painDimensions, frequency: v } })} placeholder="Daily / Per tx…" />
+                        </EditField>
+                        <EditField label="Current workarounds">
+                          <TextInput value={draft.painDimensions.currentWorkarounds} onChange={v => set({ ...draft, painDimensions: { ...draft.painDimensions, currentWorkarounds: v } })} placeholder="What they use" />
+                        </EditField>
+                        <EditField label="Cost of problem">
+                          <TextInput value={draft.painDimensions.costOfProblem} onChange={v => set({ ...draft, painDimensions: { ...draft.painDimensions, costOfProblem: v } })} placeholder="$X lost" />
+                        </EditField>
+                        <EditField label="Urgency">
+                          <TextInput value={draft.painDimensions.urgencyLevel} onChange={v => set({ ...draft, painDimensions: { ...draft.painDimensions, urgencyLevel: v } })} placeholder="Must-have / Nice-to-have" />
+                        </EditField>
+                      </div>
                     </div>
                   )}
-                </div>
+                />
+
+                {/* Solution */}
+                <EditableSection
+                  canEdit={canEdit}
+                  value={{
+                    solutionOneLiner: ps?.solutionOneLiner || '',
+                    features: (ps?.features || []) as Array<{ feature: string; benefit: string; techLayer: string }>,
+                    unfairAdvantage: ps?.unfairAdvantage || '',
+                  }}
+                  onSave={async (next) => savePatch({
+                    problemSolution: { ...ps, solutionOneLiner: next.solutionOneLiner, features: next.features, unfairAdvantage: next.unfairAdvantage } as any,
+                  })}
+                  header={
+                    <h2 className="font-display font-bold text-paper flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-teal" /> The Solution
+                    </h2>
+                  }
+                  view={(v) => (
+                    <>
+                      {v.solutionOneLiner && (
+                        <p className="text-paper/80 text-base leading-relaxed mb-4 font-medium">{v.solutionOneLiner}</p>
+                      )}
+                      {v.features.filter(f => f.feature).length > 0 && (
+                        <table className="wiki-table">
+                          <thead><tr><th>Feature</th><th>Benefit</th><th>Tech Layer</th></tr></thead>
+                          <tbody>
+                            {v.features.filter(f => f.feature).map((f, i) => (
+                              <tr key={i}>
+                                <td className="font-medium text-paper/90">{f.feature}</td>
+                                <td>{f.benefit}</td>
+                                <td><code className="text-xs bg-rule/50 px-1.5 py-0.5 rounded font-mono text-teal">{f.techLayer}</code></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                      {v.unfairAdvantage && (
+                        <div className="mt-4 p-3 bg-teal/5 border border-teal/20 rounded-lg">
+                          <p className="text-xs text-teal font-medium uppercase tracking-wider mb-1">Unfair Advantage</p>
+                          <p className="text-paper/80 text-sm">{v.unfairAdvantage}</p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  edit={(draft, set) => (
+                    <div className="space-y-3">
+                      <EditField label="Solution one-liner">
+                        <TextArea value={draft.solutionOneLiner} onChange={v => set({ ...draft, solutionOneLiner: v })} placeholder="[Product] that [benefit] for [user]" rows={2} />
+                      </EditField>
+                      <EditField label="Features">
+                        <ArrayEditor
+                          items={draft.features}
+                          onChange={items => set({ ...draft, features: items })}
+                          makeNew={() => ({ feature: '', benefit: '', techLayer: '' })}
+                          gridClass="grid grid-cols-[1.5fr_1.5fr_1fr_auto] gap-2 items-start"
+                          columns={[
+                            { key: 'feature', placeholder: 'Feature' },
+                            { key: 'benefit', placeholder: 'Benefit' },
+                            { key: 'techLayer', placeholder: 'LLM / API…' },
+                          ]}
+                        />
+                      </EditField>
+                      <EditField label="Unfair advantage">
+                        <TextArea value={draft.unfairAdvantage} onChange={v => set({ ...draft, unfairAdvantage: v })} placeholder="What cannot be easily copied" rows={3} />
+                      </EditField>
+                    </div>
+                  )}
+                />
+
+                {/* Market */}
+                <EditableSection
+                  canEdit={canEdit}
+                  value={{
+                    market: {
+                      tamSize: ps?.market?.tamSize || '',
+                      tamSource: ps?.market?.tamSource || '',
+                      samSize: ps?.market?.samSize || '',
+                      samSource: ps?.market?.samSource || '',
+                      somSize: ps?.market?.somSize || '',
+                      somSource: ps?.market?.somSource || '',
+                    },
+                    whyNow: ps?.whyNow || '',
+                  }}
+                  onSave={async (next) => savePatch({
+                    problemSolution: { ...ps, market: next.market, whyNow: next.whyNow } as any,
+                  })}
+                  header={
+                    <h2 className="font-display font-bold text-paper flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-gold" /> Market Opportunity
+                    </h2>
+                  }
+                  view={(v) => (
+                    <>
+                      <div className="grid grid-cols-3 gap-3 mb-4">
+                        {[
+                          { label: 'TAM', value: v.market.tamSize, color: 'text-gold' },
+                          { label: 'SAM', value: v.market.samSize, color: 'text-accent' },
+                          { label: 'SOM', value: v.market.somSize, color: 'text-teal' },
+                        ].map(m => (
+                          <div key={m.label} className="bg-rule/30 rounded-lg p-3 text-center">
+                            <p className="text-xs text-muted mb-1">{m.label}</p>
+                            <p className={cn('font-display font-bold text-lg', m.color)}>{m.value || '—'}</p>
+                          </div>
+                        ))}
+                      </div>
+                      {v.whyNow && (
+                        <div className="p-3 bg-gold/5 border border-gold/20 rounded-lg">
+                          <p className="text-xs text-gold font-medium uppercase tracking-wider mb-1">Why Now</p>
+                          <p className="text-paper/80 text-sm">{v.whyNow}</p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  edit={(draft, set) => (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {(['tam', 'sam', 'som'] as const).map(k => (
+                          <div key={k} className="space-y-2">
+                            <EditField label={`${k.toUpperCase()} size`}>
+                              <TextInput
+                                value={(draft.market as any)[`${k}Size`]}
+                                onChange={v => set({ ...draft, market: { ...draft.market, [`${k}Size`]: v } as any })}
+                                placeholder="$2.4B"
+                              />
+                            </EditField>
+                            <EditField label={`${k.toUpperCase()} source`}>
+                              <TextInput
+                                value={(draft.market as any)[`${k}Source`]}
+                                onChange={v => set({ ...draft, market: { ...draft.market, [`${k}Source`]: v } as any })}
+                                placeholder="Source, Year"
+                              />
+                            </EditField>
+                          </div>
+                        ))}
+                      </div>
+                      <EditField label="Why now?">
+                        <TextArea value={draft.whyNow} onChange={v => set({ ...draft, whyNow: v })} placeholder="The tech shift that makes this the right moment" rows={3} />
+                      </EditField>
+                    </div>
+                  )}
+                />
               </div>
             )}
 
