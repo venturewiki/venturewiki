@@ -14,7 +14,9 @@ import {
 import Navbar from '@/components/layout/Navbar'
 import { EditableSection } from '@/components/business/EditableSection'
 import { EditField, TextInput, TextArea, Selector, ArrayEditor } from '@/components/business/edit-fields'
-import { fetchBusiness, incrementViewCount, toggleFeatured, fetchEditHistory, fetchComments, postComment, fetchCandidates, fetchValidations, fetchInvestments, fetchVentureValue, fetchVentureFiles, fetchVentureFile, createVentureFile, updateBusiness, type VentureFile } from '@/lib/api'
+import MentionInput from '@/components/business/MentionInput'
+import InvitePersonModal from '@/components/business/InvitePersonModal'
+import { fetchBusiness, incrementViewCount, toggleFeatured, fetchEditHistory, fetchComments, postComment, fetchCandidates, fetchValidations, fetchInvestments, fetchVentureValue, fetchVentureFiles, fetchVentureFile, createVentureFile, updateBusiness, inviteCollaborator, applyForRole, type VentureFile, type GhUserHit } from '@/lib/api'
 import { cn, STAGE_LABELS, STAGE_COLORS, TYPE_ICONS, TYPE_LABELS, formatRelativeTime, formatNumber } from '@/lib/utils'
 import type { BusinessPlan, EditRecord, Comment, RoleCandidate, Validation, InvestmentInterest, VentureValue } from '@/types'
 
@@ -79,6 +81,28 @@ export default function BusinessPage() {
     const updated = { ...business, ...patch } as BusinessPlan
     await updateBusiness(business.id, updated, 'Inline edit via venture page')
     setBusiness(updated)
+  }
+
+  const [inviteContributorOpen, setInviteContributorOpen] = useState(false)
+  const [inviteCandidateOpen, setInviteCandidateOpen] = useState(false)
+  const [inviteRole, setInviteRole] = useState('')
+  const [inviteToast, setInviteToast] = useState<string | null>(null)
+
+  const handleInviteContributor = async (user: GhUserHit) => {
+    if (!business) return
+    await inviteCollaborator(business.id, user.login, 'push')
+    setInviteToast(`@${user.login} was invited as a contributor on GitHub.`)
+  }
+
+  const handleInviteCandidate = async (user: GhUserHit) => {
+    if (!business) return
+    const pitch = inviteRole
+      ? `Invited by the venture team for the ${inviteRole} role.`
+      : 'Invited by the venture team to apply for an open role.'
+    await applyForRole(business.id, inviteRole || 'Open role', `@${user.login} — ${pitch}`)
+    const list = await fetchCandidates(business.id)
+    setCandidates(list)
+    setInviteToast(`@${user.login} was added to candidates. Mention them in Discussion to notify them.`)
   }
 
   const [addFileOpen, setAddFileOpen] = useState(false)
@@ -845,6 +869,20 @@ export default function BusinessPage() {
             {/* ── Tab: Team & Roadmap ───────────────────────────────── */}
             {!activeFile && activeTab === 'team' && (
               <div className="space-y-6 animate-fade-in">
+                {canEdit && (
+                  <div className="flex items-center justify-between gap-3 -mb-2">
+                    <p className="text-xs text-muted">
+                      Invite collaborators by their GitHub username — they&apos;ll get a GitHub notification and write access to this venture&apos;s repo.
+                    </p>
+                    <button
+                      onClick={() => setInviteContributorOpen(true)}
+                      className="btn-primary text-xs shrink-0"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" /> Invite contributor
+                    </button>
+                  </div>
+                )}
+
                 {/* Founding Team */}
                 <EditableSection
                   canEdit={canEdit}
@@ -1262,9 +1300,19 @@ export default function BusinessPage() {
             {!activeFile && activeTab === 'candidates' && (
               <div className="space-y-4 animate-fade-in">
                 <div className="section-card">
-                  <h2 className="font-display font-bold text-paper mb-4 flex items-center gap-2">
-                    <UserPlus className="w-4 h-4 text-accent" /> Role Candidates
-                  </h2>
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <h2 className="font-display font-bold text-paper flex items-center gap-2">
+                      <UserPlus className="w-4 h-4 text-accent" /> Role Candidates
+                    </h2>
+                    {canEdit && (
+                      <button
+                        onClick={() => { setInviteRole(''); setInviteCandidateOpen(true) }}
+                        className="btn-ghost text-xs shrink-0"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" /> Invite candidate
+                      </button>
+                    )}
+                  </div>
                   <p className="text-muted text-sm mb-4">
                     People who have applied for open roles in this venture. Endorse candidates you think are a great fit.
                   </p>
@@ -1444,14 +1492,16 @@ export default function BusinessPage() {
               <div className="space-y-4 animate-fade-in">
                 {session ? (
                   <div className="section-card">
-                    <textarea
+                    <p className="text-xs text-muted mb-2">
+                      Type <code className="font-mono bg-rule/40 px-1 rounded">@</code> to mention a GitHub user — they&apos;ll be notified by GitHub.
+                    </p>
+                    <MentionInput
                       value={newComment}
-                      onChange={e => setNewComment(e.target.value)}
-                      placeholder="Leave a comment or feedback…"
+                      onChange={setNewComment}
+                      placeholder="Leave a comment or feedback. Use @ to mention someone…"
                       rows={3}
-                      className="input-base resize-none mb-3"
                     />
-                    <button onClick={handleComment} className="btn-primary" disabled={!newComment.trim()}>
+                    <button onClick={handleComment} className="btn-primary mt-3" disabled={!newComment.trim()}>
                       Post Comment
                     </button>
                   </div>
@@ -1541,6 +1591,29 @@ export default function BusinessPage() {
           </aside>
         </div>
       </div>
+
+      <InvitePersonModal
+        open={inviteContributorOpen}
+        title="Invite contributor"
+        ctaLabel="Invite"
+        onPick={async (user) => { await handleInviteContributor(user) }}
+        onClose={() => setInviteContributorOpen(false)}
+      />
+      <InvitePersonModal
+        open={inviteCandidateOpen}
+        title="Invite candidate"
+        ctaLabel="Add as candidate"
+        onPick={async (user) => { await handleInviteCandidate(user) }}
+        onClose={() => setInviteCandidateOpen(false)}
+      />
+      {inviteToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-emerald-900/90 border border-emerald-600 rounded-lg px-4 py-2 shadow-xl">
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-emerald-100">{inviteToast}</p>
+            <button onClick={() => setInviteToast(null)} className="text-emerald-300 hover:text-emerald-100 text-xs">Dismiss</button>
+          </div>
+        </div>
+      )}
 
       {addFileOpen && (
         <div

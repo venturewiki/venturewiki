@@ -271,6 +271,30 @@ export async function createVentureFile(slug: string, name: string, content: str
   return data.name
 }
 
+// ── GitHub user search + collaborator invite ────────────────────────────────
+
+export interface GhUserHit { login: string; name?: string; avatarUrl: string; htmlUrl: string }
+
+export async function searchGithubUsers(q: string): Promise<GhUserHit[]> {
+  const trimmed = q.trim()
+  if (!trimmed) return []
+  const res = await fetch(`/api/github/users/search?q=${encodeURIComponent(trimmed)}`)
+  if (!res.ok) return []
+  return res.json()
+}
+
+export async function inviteCollaborator(slug: string, username: string, permission: 'pull' | 'push' | 'maintain' | 'admin' | 'triage' = 'push'): Promise<void> {
+  const res = await fetch(`/api/businesses/${encodeURIComponent(slug)}/collaborators`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, permission }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Failed to invite' }))
+    throw new Error(err.error)
+  }
+}
+
 // ── My GitHub (orgs + repos for the logged-in user) ─────────────────────────
 
 export interface MyOrg { login: string; id: number; avatarUrl: string; description: string }
