@@ -177,20 +177,12 @@ export default function BusinessEditorPage() {
       data.isPublic = data.isPublic === 'true' || data.isPublic === true
       if (isNew) {
         const target = ownerOptions.find(o => o.key === ownerKey)?.target
-        const { slug, owner } = await createBusiness(
+        const { slug } = await createBusiness(
           { ...data, createdBy: session.user.id },
           target,
         )
         toast.success('Business plan created!')
-        // /business/[slug] currently only resolves repos in the venturewiki org.
-        // If the user picked a different owner, route them to GitHub directly so
-        // they can immediately see the new repo & plan.yaml.
-        if (owner === 'venturewiki') {
-          router.push(`/business/${slug}`)
-        } else {
-          window.open(`https://github.com/${owner}/${slug}/blob/main/.venturewiki/plan.yaml`, '_blank', 'noopener,noreferrer')
-          router.push('/')
-        }
+        router.push(`/business/${slug}`)
       } else {
         const existing = await fetchBusiness(params.slug as string)
         if (existing) {

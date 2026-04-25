@@ -39,20 +39,60 @@ function encodeContent(content: string): string {
   return Buffer.from(content, 'utf-8').toString('base64')
 }
 
-async function readPlanYaml(slug: string): Promise<{ data: any; sha: string } | null> {
+// Phase 2: ventures may live under any GitHub owner. resolveBusinessOwner maps
+// a slug → the owner login. Cached so we don't re-search GitHub on every call.
+export async function resolveBusinessOwner(slug: string): Promise<string | null> {
+  const cacheKey = `owner:${slug}`
+  const cached = getCached<string | null>(cacheKey)
+  if (cached !== undefined) return cached
+
+  const octokit = getPublicOctokit()
+
+  // Fast path: the venturewiki org. Covers all legacy ventures and the platform default.
+  try {
+    await octokit.rest.repos.get({ owner: GITHUB_ORG, repo: slug })
+    setCache(cacheKey, GITHUB_ORG)
+    return GITHUB_ORG
+  } catch { /* fall through */ }
+
+  // Public search: any repo on GitHub named `slug` carrying the `venturewiki` topic.
+  // Note: this only finds public repos. Private cross-owner repos are intentionally
+  // not resolvable via this path — they can only be reached by their owner via the
+  // "Your GitHub" panel, which uses the viewer's OAuth token.
+  try {
+    const { data } = await octokit.rest.search.repos({
+      q: `${slug} in:name topic:venturewiki`,
+      per_page: 5,
+    })
+    const match = data.items.find(r => r.name === slug)
+    if (match) {
+      const owner = match.owner!.login
+      setCache(cacheKey, owner)
+      return owner
+    }
+  } catch { /* ignore */ }
+
+  setCache(cacheKey, null as any)
+  return null
+}
+
+async function readPlanYaml(slug: string): Promise<{ data: any; sha: string; owner: string } | null> {
   const cacheKey = `plan:${slug}`
-  const cached = getCached<{ data: any; sha: string }>(cacheKey)
+  const cached = getCached<{ data: any; sha: string; owner: string }>(cacheKey)
   if (cached) return cached
+
+  const owner = await resolveBusinessOwner(slug)
+  if (!owner) return null
 
   try {
     const octokit = getPublicOctokit()
     const { data } = await octokit.rest.repos.getContent({
-      owner: GITHUB_ORG,
+      owner,
       repo: slug,
       path: '.venturewiki/plan.yaml',
     })
     if ('content' in data && data.type === 'file') {
-      const result = { data: yaml.load(decodeContent(data.content)), sha: data.sha }
+      const result = { data: yaml.load(decodeContent(data.content)), sha: data.sha, owner }
       setCache(cacheKey, result)
       return result
     }
@@ -65,9 +105,11 @@ async function readPlanYaml(slug: string): Promise<{ data: any; sha: string } | 
 async function writePlanYaml(
   slug: string, plan: any, message: string, existingSha?: string
 ): Promise<void> {
+  const owner = await resolveBusinessOwner(slug)
+  if (!owner) throw new Error('Business not found')
   const octokit = getAdminOctokit()
   await octokit.rest.repos.createOrUpdateFileContents({
-    owner: GITHUB_ORG,
+    owner,
     repo: slug,
     path: '.venturewiki/plan.yaml',
     message,
@@ -251,11 +293,10 @@ export async function getBusiness(id: string): Promise<BusinessPlan | null> {
 
 export async function getBusinessBySlug(slug: string): Promise<BusinessPlan | null> {
   try {
+    const owner = await resolveBusinessOwner(slug)
+    if (!owner) return null
     const octokit = getPublicOctokit()
-    const { data: repo } = await octokit.rest.repos.get({
-      owner: GITHUB_ORG,
-      repo: slug,
-    })
+    const { data: repo } = await octokit.rest.repos.get({ owner, repo: slug })
     const planResult = await readPlanYaml(slug)
     if (!planResult) return null
     return repoToPlan(repo, planResult.data)
@@ -283,16 +324,17 @@ export async function updateBusiness(
 
   await writePlanYaml(id, updated, `📝 ${editSummary}`, existing.sha)
 
+  const owner = existing.owner
   const octokit = getAdminOctokit()
   try {
     const { data: readmeFile } = await octokit.rest.repos.getContent({
-      owner: GITHUB_ORG,
+      owner,
       repo: id,
       path: 'README.md',
     })
     if ('sha' in readmeFile) {
       await octokit.rest.repos.createOrUpdateFileContents({
-        owner: GITHUB_ORG,
+        owner,
         repo: id,
         path: 'README.md',
         message: '📄 Update README',
@@ -304,7 +346,7 @@ export async function updateBusiness(
 
   try {
     await octokit.rest.repos.replaceAllTopics({
-      owner: GITHUB_ORG,
+      owner,
       repo: id,
       names: planToTopics(updated as BusinessPlan),
     })
@@ -320,7 +362,8 @@ export async function getBusinesses(opts: {
 } = {}): Promise<{ businesses: BusinessPlan[]; lastDoc: null }> {
   const octokit = getPublicOctokit()
 
-  let searchQuery = `org:${GITHUB_ORG} topic:venturewiki`
+  // Phase 2: ventures may live under any GitHub owner. Scope by topic, not org.
+  let searchQuery = `topic:venturewiki`
   if (opts.stage) searchQuery += ` topic:stage-${opts.stage}`
   if (opts.type) searchQuery += ` topic:type-${opts.type}`
   if (opts.featuredOnly) searchQuery += ` topic:venturewiki-featured`
@@ -336,6 +379,8 @@ export async function getBusinesses(opts: {
 
   const businesses = await Promise.all(
     searchResult.items.map(async (repo) => {
+      // Prime owner cache so readPlanYaml doesn't re-search GitHub
+      setCache(`owner:${repo.name}`, repo.owner!.login)
       const planResult = await readPlanYaml(repo.name)
       if (!planResult) return null
       return repoToPlan(repo, planResult.data)
@@ -378,20 +423,24 @@ export async function incrementViewCount(id: string) {
 }
 
 export async function toggleFeatured(id: string, featured: boolean) {
+  const owner = await resolveBusinessOwner(id)
+  if (!owner) throw new Error('Business not found')
   const octokit = getAdminOctokit()
-  const { data: repo } = await octokit.rest.repos.get({ owner: GITHUB_ORG, repo: id })
+  const { data: repo } = await octokit.rest.repos.get({ owner, repo: id })
   let topics = repo.topics || []
   if (featured && !topics.includes('venturewiki-featured')) {
     topics.push('venturewiki-featured')
   } else if (!featured) {
     topics = topics.filter((t: string) => t !== 'venturewiki-featured')
   }
-  await octokit.rest.repos.replaceAllTopics({ owner: GITHUB_ORG, repo: id, names: topics })
+  await octokit.rest.repos.replaceAllTopics({ owner, repo: id, names: topics })
 }
 
 export async function archiveBusiness(id: string) {
+  const owner = await resolveBusinessOwner(id)
+  if (!owner) throw new Error('Business not found')
   const octokit = getAdminOctokit()
-  await octokit.rest.repos.update({ owner: GITHUB_ORG, repo: id, archived: true })
+  await octokit.rest.repos.update({ owner, repo: id, archived: true })
 }
 
 // ── Users (registry stored in .venturewiki meta repo) ─────────────────────────
@@ -507,9 +556,11 @@ export async function getUserByStripeCustomerId(customerId: string): Promise<VWU
 
 export async function getEditHistory(businessId: string): Promise<EditRecord[]> {
   try {
+    const owner = await resolveBusinessOwner(businessId)
+    if (!owner) return []
     const octokit = getPublicOctokit()
     const { data: commits } = await octokit.rest.repos.listCommits({
-      owner: GITHUB_ORG,
+      owner,
       repo: businessId,
       path: '.venturewiki/plan.yaml',
       per_page: 50,
@@ -531,36 +582,38 @@ export async function getEditHistory(businessId: string): Promise<EditRecord[]> 
 
 // ── Comments (GitHub Issues as discussion threads) ───────────────────────────
 
-async function getOrCreateDiscussionIssue(repoSlug: string): Promise<number> {
+async function getOrCreateDiscussionIssue(repoSlug: string): Promise<{ owner: string; issueNumber: number }> {
+  const owner = await resolveBusinessOwner(repoSlug)
+  if (!owner) throw new Error('Business not found')
   const octokit = getAdminOctokit()
   const { data: issues } = await octokit.rest.issues.listForRepo({
-    owner: GITHUB_ORG,
+    owner,
     repo: repoSlug,
     labels: 'discussion',
     state: 'open',
     per_page: 1,
   })
-  if (issues.length > 0) return issues[0].number
+  if (issues.length > 0) return { owner, issueNumber: issues[0].number }
 
   const { data: issue } = await octokit.rest.issues.create({
-    owner: GITHUB_ORG,
+    owner,
     repo: repoSlug,
     title: '💬 Discussion — Leave your feedback',
     body: 'This is the community discussion thread for this business plan. Share feedback, ask questions, or suggest edits!',
     labels: ['discussion'],
   })
-  return issue.number
+  return { owner, issueNumber: issue.number }
 }
 
 export async function addComment(data: Omit<Comment, 'id' | 'createdAt'>): Promise<string> {
   const octokit = getAdminOctokit()
-  const issueNumber = await getOrCreateDiscussionIssue(data.businessId)
+  const { owner, issueNumber } = await getOrCreateDiscussionIssue(data.businessId)
   const body = data.section
     ? `**Re: ${data.section}**\n\n${data.content}`
     : data.content
 
   const { data: comment } = await octokit.rest.issues.createComment({
-    owner: GITHUB_ORG,
+    owner,
     repo: data.businessId,
     issue_number: issueNumber,
     body,
@@ -571,9 +624,9 @@ export async function addComment(data: Omit<Comment, 'id' | 'createdAt'>): Promi
 export async function getComments(businessId: string): Promise<Comment[]> {
   try {
     const octokit = getPublicOctokit()
-    const issueNumber = await getOrCreateDiscussionIssue(businessId)
+    const { owner, issueNumber } = await getOrCreateDiscussionIssue(businessId)
     const { data: comments } = await octokit.rest.issues.listComments({
-      owner: GITHUB_ORG,
+      owner,
       repo: businessId,
       issue_number: issueNumber,
       per_page: 100,
@@ -665,10 +718,12 @@ export async function getAdminStats(): Promise<AdminStats> {
 // ── Role Candidates (stored in .venturewiki/candidates.yaml per repo) ────────
 
 async function readCandidatesYaml(slug: string): Promise<{ data: RoleCandidate[]; sha: string }> {
+  const owner = await resolveBusinessOwner(slug)
+  if (!owner) return { data: [], sha: '' }
   try {
     const octokit = getAdminOctokit()
     const { data } = await octokit.rest.repos.getContent({
-      owner: GITHUB_ORG, repo: slug, path: '.venturewiki/candidates.yaml',
+      owner, repo: slug, path: '.venturewiki/candidates.yaml',
     })
     if ('content' in data && data.type === 'file') {
       return { data: (yaml.load(decodeContent(data.content)) as RoleCandidate[]) || [], sha: data.sha }
@@ -678,9 +733,11 @@ async function readCandidatesYaml(slug: string): Promise<{ data: RoleCandidate[]
 }
 
 async function writeCandidatesYaml(slug: string, candidates: RoleCandidate[], sha: string): Promise<void> {
+  const owner = await resolveBusinessOwner(slug)
+  if (!owner) throw new Error('Business not found')
   const octokit = getAdminOctokit()
   await octokit.rest.repos.createOrUpdateFileContents({
-    owner: GITHUB_ORG, repo: slug, path: '.venturewiki/candidates.yaml',
+    owner, repo: slug, path: '.venturewiki/candidates.yaml',
     message: '👤 Update role candidates',
     content: encodeContent(yaml.dump(candidates, { lineWidth: -1 })),
     ...(sha ? { sha } : {}),
@@ -727,10 +784,12 @@ export async function updateCandidateStatus(slug: string, candidateId: string, s
 // ── Validations (stored in .venturewiki/validations.yaml per repo) ───────────
 
 async function readValidationsYaml(slug: string): Promise<{ data: Validation[]; sha: string }> {
+  const owner = await resolveBusinessOwner(slug)
+  if (!owner) return { data: [], sha: '' }
   try {
     const octokit = getAdminOctokit()
     const { data } = await octokit.rest.repos.getContent({
-      owner: GITHUB_ORG, repo: slug, path: '.venturewiki/validations.yaml',
+      owner, repo: slug, path: '.venturewiki/validations.yaml',
     })
     if ('content' in data && data.type === 'file') {
       return { data: (yaml.load(decodeContent(data.content)) as Validation[]) || [], sha: data.sha }
@@ -740,9 +799,11 @@ async function readValidationsYaml(slug: string): Promise<{ data: Validation[]; 
 }
 
 async function writeValidationsYaml(slug: string, validations: Validation[], sha: string): Promise<void> {
+  const owner = await resolveBusinessOwner(slug)
+  if (!owner) throw new Error('Business not found')
   const octokit = getAdminOctokit()
   await octokit.rest.repos.createOrUpdateFileContents({
-    owner: GITHUB_ORG, repo: slug, path: '.venturewiki/validations.yaml',
+    owner, repo: slug, path: '.venturewiki/validations.yaml',
     message: '✅ Update validations',
     content: encodeContent(yaml.dump(validations, { lineWidth: -1 })),
     ...(sha ? { sha } : {}),
@@ -769,10 +830,12 @@ export async function addValidation(slug: string, validation: Omit<Validation, '
 // ── Investment Interest (stored in .venturewiki/investments.yaml per repo) ───
 
 async function readInvestmentsYaml(slug: string): Promise<{ data: InvestmentInterest[]; sha: string }> {
+  const owner = await resolveBusinessOwner(slug)
+  if (!owner) return { data: [], sha: '' }
   try {
     const octokit = getAdminOctokit()
     const { data } = await octokit.rest.repos.getContent({
-      owner: GITHUB_ORG, repo: slug, path: '.venturewiki/investments.yaml',
+      owner, repo: slug, path: '.venturewiki/investments.yaml',
     })
     if ('content' in data && data.type === 'file') {
       return { data: (yaml.load(decodeContent(data.content)) as InvestmentInterest[]) || [], sha: data.sha }
@@ -782,9 +845,11 @@ async function readInvestmentsYaml(slug: string): Promise<{ data: InvestmentInte
 }
 
 async function writeInvestmentsYaml(slug: string, investments: InvestmentInterest[], sha: string): Promise<void> {
+  const owner = await resolveBusinessOwner(slug)
+  if (!owner) throw new Error('Business not found')
   const octokit = getAdminOctokit()
   await octokit.rest.repos.createOrUpdateFileContents({
-    owner: GITHUB_ORG, repo: slug, path: '.venturewiki/investments.yaml',
+    owner, repo: slug, path: '.venturewiki/investments.yaml',
     message: '💰 Update investment interest',
     content: encodeContent(yaml.dump(investments, { lineWidth: -1 })),
     ...(sha ? { sha } : {}),
@@ -871,10 +936,13 @@ export async function listVentureFiles(slug: string): Promise<VentureFile[]> {
   const cached = getCached<VentureFile[]>(cacheKey)
   if (cached) return cached
 
+  const owner = await resolveBusinessOwner(slug)
+  if (!owner) return []
+
   try {
     const octokit = getPublicOctokit()
     const { data } = await octokit.rest.repos.getContent({
-      owner: GITHUB_ORG,
+      owner,
       repo: slug,
       path: '.venturewiki',
     })
@@ -910,9 +978,11 @@ export async function createVentureFile(
   message: string,
 ): Promise<void> {
   validateVentureFilename(filePath)
+  const owner = await resolveBusinessOwner(slug)
+  if (!owner) throw new Error('Business not found')
   const octokit = getAdminOctokit()
   await octokit.rest.repos.createOrUpdateFileContents({
-    owner: GITHUB_ORG,
+    owner,
     repo: slug,
     path: `.venturewiki/${filePath}`,
     message,
@@ -934,10 +1004,13 @@ export async function readVentureFile(
   const cached = getCached<{ name: string; content: string }>(cacheKey)
   if (cached) return cached
 
+  const owner = await resolveBusinessOwner(slug)
+  if (!owner) return null
+
   try {
     const octokit = getPublicOctokit()
     const { data } = await octokit.rest.repos.getContent({
-      owner: GITHUB_ORG,
+      owner,
       repo: slug,
       path: `.venturewiki/${filePath}`,
     })
