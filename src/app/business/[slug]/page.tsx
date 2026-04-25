@@ -12,8 +12,74 @@ import {
 } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
 import { fetchBusiness, incrementViewCount, toggleFeatured, fetchEditHistory, fetchComments, postComment, fetchCandidates, fetchValidations, fetchInvestments, fetchVentureValue } from '@/lib/api'
+import { useCallback } from 'react'
+import dynamic from 'next/dynamic'
+const ReactMarkdown = dynamic(() => import('react-markdown'), { ssr: false })
 import { cn, STAGE_LABELS, STAGE_COLORS, TYPE_ICONS, TYPE_LABELS, formatRelativeTime, formatNumber } from '@/lib/utils'
 import type { BusinessPlan, EditRecord, Comment, RoleCandidate, Validation, InvestmentInterest, VentureValue } from '@/types'
+
+function getFileType(filename: string) {
+  const ext = filename.split('.').pop()?.toLowerCase()
+  if (!ext) return 'unknown'
+  if (['md', 'markdown'].includes(ext)) return 'markdown'
+  if (['txt'].includes(ext)) return 'text'
+  if (['html', 'htm'].includes(ext)) return 'html'
+  if (['mp3', 'wav', 'ogg', 'm4a'].includes(ext)) return 'audio'
+  if (['mp4', 'webm', 'ogg', 'mov'].includes(ext)) return 'video'
+  return 'other'
+}
+
+function FileTree({ tree, onSelect, selectedPath }: { tree: any[], onSelect: (path: string) => void, selectedPath: string }) {
+  if (!tree) return null
+  return (
+    <ul className="text-xs">
+      {tree.map((item: any) => (
+        <li key={item.path} className="mb-1">
+          {item.type === 'dir' ? (
+            <>
+              <span className="font-bold text-paper/80">📁 {item.name}</span>
+              <FileTree tree={item.children} onSelect={onSelect} selectedPath={selectedPath} />
+            </>
+          ) : (
+            <button
+              className={`block text-left w-full px-2 py-1 rounded hover:bg-accent/10 ${selectedPath === item.path ? 'bg-accent/20 text-accent font-semibold' : 'text-paper/80'}`}
+              onClick={() => onSelect(item.path.replace('.venturewiki/', ''))}
+            >
+              {getFileType(item.name) === 'markdown' && '📝 '}
+              {getFileType(item.name) === 'text' && '📄 '}
+              {getFileType(item.name) === 'html' && '🌐 '}
+              {getFileType(item.name) === 'audio' && '🎵 '}
+              {getFileType(item.name) === 'video' && '🎬 '}
+              {item.name}
+            </button>
+          )}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function FileViewer({ file }: { file: any }) {
+  if (!file) return <div className="text-muted italic text-center py-8">Select a file to view</div>
+  const type = getFileType(file.name)
+  const content = file.encoding === 'base64' ? atob(file.content) : file.content
+  if (type === 'markdown') {
+    return <div className="prose prose-invert max-w-none text-lg bg-ink p-8 rounded-xl overflow-auto"><ReactMarkdown>{content}</ReactMarkdown></div>
+  }
+  if (type === 'text') {
+    return <pre className="bg-ink p-8 rounded-xl text-paper text-lg overflow-auto whitespace-pre-wrap">{content}</pre>
+  }
+  if (type === 'html') {
+    return <iframe srcDoc={content} className="w-full min-h-[60vh] bg-white rounded-xl border border-rule" sandbox="allow-scripts allow-same-origin" />
+  }
+  if (type === 'audio') {
+    return <audio controls className="w-full mt-4"><source src={file.download_url} />Your browser does not support the audio element.</audio>
+  }
+  if (type === 'video') {
+    return <video controls className="w-full mt-4 max-h-[70vh]"><source src={file.download_url} />Your browser does not support the video tag.</video>
+  }
+  return <div className="text-muted italic text-center py-8">Preview not supported. <a href={file.download_url} className="text-accent underline" target="_blank" rel="noopener noreferrer">Download</a></div>
+}
 
 export default function BusinessPage() {
   const { slug }            = useParams<{ slug: string }>()
@@ -29,6 +95,28 @@ export default function BusinessPage() {
   const [newComment, setNewComment] = useState('')
   const [activeTab, setActiveTab]   = useState('overview')
   const [loading, setLoading]       = useState(true)
+  // File tree and viewer state
+  const [fileTree, setFileTree] = useState<any[]>([])
+  const [selectedFile, setSelectedFile] = useState<any | null>(null)
+  const [selectedPath, setSelectedPath] = useState<string>('')
+
+  // Fetch .venturewiki file tree on mount
+  useEffect(() => {
+    if (!slug) return
+    fetch(`/api/businesses/${slug}/files`).then(r => r.json()).then(setFileTree)
+  }, [slug])
+
+  // Fetch file content when selectedPath changes
+  useEffect(() => {
+    if (!slug || !selectedPath) return setSelectedFile(null)
+    fetch(`/api/businesses/${slug}/files?path=${encodeURIComponent(selectedPath)}`)
+      .then(r => r.json())
+      .then(setSelectedFile)
+  }, [slug, selectedPath])
+
+  const handleSelectFile = useCallback((path: string) => {
+    setSelectedPath(path)
+  }, [])
 
   useEffect(() => {
     if (!slug) return
@@ -116,6 +204,20 @@ export default function BusinessPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* File explorer and viewer */}
+        <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-8 mb-10">
+          <aside className="bg-rule/10 rounded-xl p-4 min-h-[60vh] max-h-[80vh] overflow-auto">
+            <div className="font-bold text-accent mb-2 text-sm">.venturewiki files</div>
+            <FileTree tree={fileTree} onSelect={handleSelectFile} selectedPath={selectedPath} />
+          </aside>
+          <section className="bg-rule/10 rounded-xl p-4 min-h-[60vh] max-h-[80vh] overflow-auto flex flex-col">
+            <div className="font-bold text-paper/80 mb-2 text-sm">{selectedFile?.name || 'Select a file'}</div>
+            <div className="flex-1 overflow-auto">
+              <FileViewer file={selectedFile} />
+            </div>
+          </section>
+        </div>
+        {/* Main business content */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8">
 
           {/* ── Main column ────────────────────────────────────────────── */}
