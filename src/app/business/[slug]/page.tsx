@@ -653,274 +653,608 @@ export default function BusinessPage() {
             {/* ── Tab: Product & GTM ────────────────────────────────── */}
             {!activeFile && activeTab === 'product' && (
               <div className="space-y-6 animate-fade-in">
-                <div className="section-card">
-                  <h2 className="font-display font-bold text-paper mb-4 flex items-center gap-2">
-                    <Cpu className="w-4 h-4 text-accent" /> Tech Stack
-                  </h2>
-                  {gtm?.techStack && (
+                {/* Tech Stack */}
+                <EditableSection
+                  canEdit={canEdit}
+                  value={gtm?.techStack || {}}
+                  onSave={async (next) => savePatch({ productGtm: { ...gtm, techStack: next } as any })}
+                  header={
+                    <h2 className="font-display font-bold text-paper flex items-center gap-2">
+                      <Cpu className="w-4 h-4 text-accent" /> Tech Stack
+                    </h2>
+                  }
+                  view={(v: any) => (
                     <table className="wiki-table">
                       <tbody>
                         {Object.entries({
-                          'Product Type': gtm.techStack.productType,
-                          'Frontend':     gtm.techStack.frontend,
-                          'Backend':      gtm.techStack.backend,
-                          'AI / ML Layer':gtm.techStack.aiLayer,
-                          'Data Storage': gtm.techStack.dataStorage,
-                          'Auth & Payments': gtm.techStack.authPayments,
-                          'Hosting':      gtm.techStack.hosting,
-                          'Build Stage':  gtm.techStack.buildStage,
-                          'IP / Proprietary': gtm.techStack.ipLayer,
-                        }).filter(([,v]) => v).map(([k, v]) => (
+                          'Product Type': v?.productType,
+                          'Frontend': v?.frontend,
+                          'Backend': v?.backend,
+                          'AI / ML Layer': v?.aiLayer,
+                          'Data Storage': v?.dataStorage,
+                          'Auth & Payments': v?.authPayments,
+                          'Hosting': v?.hosting,
+                          'Build Stage': v?.buildStage,
+                          'IP / Proprietary': v?.ipLayer,
+                        }).filter(([, val]) => val).map(([k, val]) => (
                           <tr key={k}>
                             <td className="w-40 text-muted font-medium">{k}</td>
-                            <td><code className="text-xs bg-rule/50 px-1.5 py-0.5 rounded font-mono text-paper/80">{v}</code></td>
+                            <td><code className="text-xs bg-rule/50 px-1.5 py-0.5 rounded font-mono text-paper/80">{val as string}</code></td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   )}
-                </div>
+                  edit={(draft: any, set) => (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {[
+                        ['frontend', 'Frontend', 'React / Next.js…'],
+                        ['backend', 'Backend / Infra', 'Node / Python…'],
+                        ['aiLayer', 'AI / ML Layer', 'OpenAI / Anthropic…'],
+                        ['dataStorage', 'Data Storage', 'Postgres / Pinecone…'],
+                        ['authPayments', 'Auth & Payments', 'Clerk + Stripe…'],
+                        ['hosting', 'Hosting', 'Vercel / AWS…'],
+                        ['buildStage', 'Build Stage', 'MVP / Beta / Live…'],
+                        ['ipLayer', 'IP / Proprietary', 'Trained model…'],
+                      ].map(([k, label, ph]) => (
+                        <EditField key={k} label={label}>
+                          <TextInput value={(draft as any)[k]} onChange={v => set({ ...draft, [k]: v })} placeholder={ph} />
+                        </EditField>
+                      ))}
+                    </div>
+                  )}
+                />
 
-                <div className="section-card">
-                  <h2 className="font-display font-bold text-paper mb-4 flex items-center gap-2">
-                    <Target className="w-4 h-4 text-accent" /> Go-to-Market
-                  </h2>
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    {[
-                      { label: 'ICP',           value: gtm?.icp },
-                      { label: 'Pricing Model', value: gtm?.pricingModel },
-                      { label: 'Price Point',   value: gtm?.pricePoint },
-                      { label: 'Sales Motion',  value: gtm?.salesMotion },
-                    ].filter(i => i.value).map(item => (
-                      <div key={item.label} className="bg-rule/20 rounded-lg p-3">
-                        <p className="text-xs text-muted mb-1">{item.label}</p>
-                        <p className="text-paper/80 text-sm">{item.value}</p>
-                      </div>
-                    ))}
-                  </div>
-                  {gtm?.gtmChannels?.filter(c => c.channel).length > 0 && (
-                    <table className="wiki-table">
-                      <thead><tr><th>Channel</th><th>Tactic</th><th>90-Day Goal</th></tr></thead>
-                      <tbody>
-                        {gtm.gtmChannels.filter(c => c.channel).map((c, i) => (
-                          <tr key={i}>
-                            <td className="font-medium text-paper/90">{c.channel}</td>
-                            <td className="text-paper/70">{c.tactic}</td>
-                            <td className="text-teal font-medium">{c.goal90Day}</td>
-                          </tr>
+                {/* GTM */}
+                <EditableSection
+                  canEdit={canEdit}
+                  value={{
+                    icp: gtm?.icp || '',
+                    pricingModel: gtm?.pricingModel || '',
+                    pricePoint: gtm?.pricePoint || '',
+                    salesMotion: gtm?.salesMotion || '',
+                    timeToValue: gtm?.timeToValue || '',
+                    gtmChannels: (gtm?.gtmChannels || []) as Array<{ channel: string; tactic: string; goal90Day: string; owner: string; budgetPerMonth: string }>,
+                  }}
+                  onSave={async (next) => savePatch({
+                    productGtm: { ...gtm, icp: next.icp, pricingModel: next.pricingModel, pricePoint: next.pricePoint, salesMotion: next.salesMotion, timeToValue: next.timeToValue, gtmChannels: next.gtmChannels } as any,
+                  })}
+                  header={
+                    <h2 className="font-display font-bold text-paper flex items-center gap-2">
+                      <Target className="w-4 h-4 text-accent" /> Go-to-Market
+                    </h2>
+                  }
+                  view={(v) => (
+                    <>
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        {[
+                          { label: 'ICP', value: v.icp },
+                          { label: 'Pricing Model', value: v.pricingModel },
+                          { label: 'Price Point', value: v.pricePoint },
+                          { label: 'Sales Motion', value: v.salesMotion },
+                        ].filter(i => i.value).map(item => (
+                          <div key={item.label} className="bg-rule/20 rounded-lg p-3">
+                            <p className="text-xs text-muted mb-1">{item.label}</p>
+                            <p className="text-paper/80 text-sm">{item.value}</p>
+                          </div>
                         ))}
-                      </tbody>
-                    </table>
+                      </div>
+                      {v.gtmChannels.filter(c => c.channel).length > 0 && (
+                        <table className="wiki-table">
+                          <thead><tr><th>Channel</th><th>Tactic</th><th>90-Day Goal</th></tr></thead>
+                          <tbody>
+                            {v.gtmChannels.filter(c => c.channel).map((c, i) => (
+                              <tr key={i}>
+                                <td className="font-medium text-paper/90">{c.channel}</td>
+                                <td className="text-paper/70">{c.tactic}</td>
+                                <td className="text-teal font-medium">{c.goal90Day}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </>
                   )}
-                </div>
+                  edit={(draft, set) => (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <EditField label="ICP">
+                          <TextInput value={draft.icp} onChange={v => set({ ...draft, icp: v })} placeholder="Job title · company size…" />
+                        </EditField>
+                        <EditField label="Pricing Model">
+                          <TextInput value={draft.pricingModel} onChange={v => set({ ...draft, pricingModel: v })} placeholder="Freemium / SaaS…" />
+                        </EditField>
+                        <EditField label="Price Point">
+                          <TextInput value={draft.pricePoint} onChange={v => set({ ...draft, pricePoint: v })} placeholder="$49/mo" />
+                        </EditField>
+                        <EditField label="Sales Motion">
+                          <TextInput value={draft.salesMotion} onChange={v => set({ ...draft, salesMotion: v })} placeholder="Self-serve PLG…" />
+                        </EditField>
+                        <EditField label="Time to Value">
+                          <TextInput value={draft.timeToValue} onChange={v => set({ ...draft, timeToValue: v })} placeholder="< 5 minutes" />
+                        </EditField>
+                      </div>
+                      <EditField label="GTM Channels">
+                        <ArrayEditor
+                          items={draft.gtmChannels}
+                          onChange={items => set({ ...draft, gtmChannels: items })}
+                          makeNew={() => ({ channel: '', tactic: '', goal90Day: '', owner: '', budgetPerMonth: '' })}
+                          gridClass="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_auto] gap-2 items-start"
+                          columns={[
+                            { key: 'channel', placeholder: 'Channel' },
+                            { key: 'tactic', placeholder: 'Tactic' },
+                            { key: 'goal90Day', placeholder: '90-day goal' },
+                            { key: 'budgetPerMonth', placeholder: 'Budget/mo' },
+                          ]}
+                        />
+                      </EditField>
+                    </div>
+                  )}
+                />
 
                 {/* Competition */}
-                {gtm?.competitors?.filter(c => c.yourProduct).length > 0 && (
-                  <div className="section-card overflow-x-auto">
-                    <h2 className="font-display font-bold text-paper mb-4">Competitive Landscape</h2>
-                    <table className="wiki-table">
-                      <thead><tr>
-                        <th>Dimension</th>
-                        <th className="text-accent">{cover.companyName}</th>
-                        <th>Competitor A</th>
-                        <th>Competitor B</th>
-                        <th>Competitor C</th>
-                      </tr></thead>
-                      <tbody>
-                        {gtm.competitors.map((c, i) => (
-                          <tr key={i}>
-                            <td className="font-medium text-muted">{c.dimension}</td>
-                            <td className="text-accent font-medium">{c.yourProduct}</td>
-                            <td>{c.competitorA}</td>
-                            <td>{c.competitorB}</td>
-                            <td>{c.competitorC}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                <EditableSection
+                  canEdit={canEdit}
+                  value={(gtm?.competitors || []) as Array<{ dimension: string; yourProduct: string; competitorA: string; competitorB: string; competitorC: string }>}
+                  onSave={async (next) => savePatch({ productGtm: { ...gtm, competitors: next } as any })}
+                  className="section-card overflow-x-auto"
+                  header={<h2 className="font-display font-bold text-paper">Competitive Landscape</h2>}
+                  view={(v) => (
+                    v.filter(c => c.yourProduct).length > 0 ? (
+                      <table className="wiki-table">
+                        <thead><tr>
+                          <th>Dimension</th>
+                          <th className="text-accent">{cover.companyName}</th>
+                          <th>Competitor A</th>
+                          <th>Competitor B</th>
+                          <th>Competitor C</th>
+                        </tr></thead>
+                        <tbody>
+                          {v.map((c, i) => (
+                            <tr key={i}>
+                              <td className="font-medium text-muted">{c.dimension}</td>
+                              <td className="text-accent font-medium">{c.yourProduct}</td>
+                              <td>{c.competitorA}</td>
+                              <td>{c.competitorB}</td>
+                              <td>{c.competitorC}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : <p className="text-muted italic text-sm">No competitive matrix yet.</p>
+                  )}
+                  edit={(draft, set) => (
+                    <ArrayEditor
+                      items={draft}
+                      onChange={set}
+                      makeNew={() => ({ dimension: '', yourProduct: '', competitorA: '', competitorB: '', competitorC: '' })}
+                      gridClass="grid grid-cols-[1.2fr_1fr_1fr_1fr_1fr_auto] gap-2 items-start"
+                      columns={[
+                        { key: 'dimension', placeholder: 'Dimension' },
+                        { key: 'yourProduct', placeholder: 'Your product' },
+                        { key: 'competitorA', placeholder: 'Competitor A' },
+                        { key: 'competitorB', placeholder: 'Competitor B' },
+                        { key: 'competitorC', placeholder: 'Competitor C' },
+                      ]}
+                    />
+                  )}
+                />
               </div>
             )}
 
             {/* ── Tab: Team & Roadmap ───────────────────────────────── */}
             {!activeFile && activeTab === 'team' && (
               <div className="space-y-6 animate-fade-in">
-                <div className="section-card">
-                  <h2 className="font-display font-bold text-paper mb-4 flex items-center gap-2">
-                    <Users className="w-4 h-4 text-accent" /> Founding Team
-                  </h2>
-                  {tr?.founders?.filter(f => f.name).length > 0 ? (
-                    <div className="space-y-3">
-                      {tr.founders.filter(f => f.name).map((f, i) => (
-                        <div key={i} className="flex items-start gap-3 p-3 bg-rule/20 rounded-lg">
-                          <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent font-bold shrink-0">
-                            {f.name[0]?.toUpperCase()}
+                {/* Founding Team */}
+                <EditableSection
+                  canEdit={canEdit}
+                  value={(tr?.founders || []) as Array<{ name: string; role: string; background: string; commitment: string; equity: string }>}
+                  onSave={async (next) => savePatch({ teamRoadmap: { ...tr, founders: next } as any })}
+                  header={
+                    <h2 className="font-display font-bold text-paper flex items-center gap-2">
+                      <Users className="w-4 h-4 text-accent" /> Founding Team
+                    </h2>
+                  }
+                  view={(v) => (
+                    v.filter(f => f.name).length > 0 ? (
+                      <div className="space-y-3">
+                        {v.filter(f => f.name).map((f, i) => (
+                          <div key={i} className="flex items-start gap-3 p-3 bg-rule/20 rounded-lg">
+                            <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent font-bold shrink-0">
+                              {f.name[0]?.toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-paper">{f.name}</p>
+                              <p className="text-accent text-sm">{f.role}</p>
+                              <p className="text-muted text-xs mt-1 line-clamp-2">{f.background}</p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-xs text-muted">{f.commitment}</p>
+                              {f.equity && <p className="text-xs text-gold font-mono">{f.equity}</p>}
+                            </div>
                           </div>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-paper">{f.name}</p>
-                            <p className="text-accent text-sm">{f.role}</p>
-                            <p className="text-muted text-xs mt-1 line-clamp-2">{f.background}</p>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-xs text-muted">{f.commitment}</p>
-                            {f.equity && <p className="text-xs text-gold font-mono">{f.equity}</p>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : <p className="text-muted italic text-sm">No team members added yet</p>}
-                </div>
+                        ))}
+                      </div>
+                    ) : <p className="text-muted italic text-sm">No team members added yet</p>
+                  )}
+                  edit={(draft, set) => (
+                    <ArrayEditor
+                      items={draft}
+                      onChange={set}
+                      makeNew={() => ({ name: '', role: '', background: '', commitment: 'Full-time', equity: '' })}
+                      gridClass="grid grid-cols-[1fr_1fr_2fr_1fr_1fr_auto] gap-2 items-start"
+                      columns={[
+                        { key: 'name', placeholder: 'Name' },
+                        { key: 'role', placeholder: 'Role' },
+                        { key: 'background', placeholder: 'Background' },
+                        { key: 'commitment', placeholder: 'Commitment' },
+                        { key: 'equity', placeholder: 'Equity' },
+                      ]}
+                    />
+                  )}
+                />
 
                 {/* KPIs */}
-                {tr?.kpis?.filter(k => k.metric).length > 0 && (
-                  <div className="section-card">
-                    <h2 className="font-display font-bold text-paper mb-4">KPI Dashboard</h2>
-                    <table className="wiki-table">
-                      <thead><tr><th>Metric</th><th>Current</th><th>3-Month</th><th>12-Month</th></tr></thead>
-                      <tbody>
-                        {tr.kpis.filter(k => k.metric).map((k, i) => (
-                          <tr key={i}>
-                            <td className="font-medium text-paper/90">{k.metric}</td>
-                            <td className="font-mono text-sm">{k.current || '—'}</td>
-                            <td className="text-teal font-mono text-sm">{k.target3mo || '—'}</td>
-                            <td className="text-gold font-mono text-sm">{k.target12mo || '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                <EditableSection
+                  canEdit={canEdit}
+                  value={(tr?.kpis || []) as Array<{ metric: string; current: string; target3mo: string; target12mo: string; notes: string }>}
+                  onSave={async (next) => savePatch({ teamRoadmap: { ...tr, kpis: next } as any })}
+                  header={<h2 className="font-display font-bold text-paper">KPI Dashboard</h2>}
+                  view={(v) => (
+                    v.filter(k => k.metric).length > 0 ? (
+                      <table className="wiki-table">
+                        <thead><tr><th>Metric</th><th>Current</th><th>3-Month</th><th>12-Month</th></tr></thead>
+                        <tbody>
+                          {v.filter(k => k.metric).map((k, i) => (
+                            <tr key={i}>
+                              <td className="font-medium text-paper/90">{k.metric}</td>
+                              <td className="font-mono text-sm">{k.current || '—'}</td>
+                              <td className="text-teal font-mono text-sm">{k.target3mo || '—'}</td>
+                              <td className="text-gold font-mono text-sm">{k.target12mo || '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : <p className="text-muted italic text-sm">No KPIs added yet</p>
+                  )}
+                  edit={(draft, set) => (
+                    <ArrayEditor
+                      items={draft}
+                      onChange={set}
+                      makeNew={() => ({ metric: '', current: '', target3mo: '', target12mo: '', notes: '' })}
+                      gridClass="grid grid-cols-[1.5fr_1fr_1fr_1fr_1.5fr_auto] gap-2 items-start"
+                      columns={[
+                        { key: 'metric', placeholder: 'Metric' },
+                        { key: 'current', placeholder: 'Current' },
+                        { key: 'target3mo', placeholder: '3-month' },
+                        { key: 'target12mo', placeholder: '12-month' },
+                        { key: 'notes', placeholder: 'Notes' },
+                      ]}
+                    />
+                  )}
+                />
 
-                {/* Roadmap */}
-                {tr?.milestones?.filter(m => m.milestone).length > 0 && (
-                  <div className="section-card">
-                    <h2 className="font-display font-bold text-paper mb-4 flex items-center gap-2">
+                {/* Milestones */}
+                <EditableSection
+                  canEdit={canEdit}
+                  value={(tr?.milestones || []) as Array<{ milestone: string; owner: string; targetDate: string; budget: string; successCriteria: string; status: string }>}
+                  onSave={async (next) => savePatch({ teamRoadmap: { ...tr, milestones: next } as any })}
+                  header={
+                    <h2 className="font-display font-bold text-paper flex items-center gap-2">
                       <Map className="w-4 h-4 text-accent" /> 12-Month Roadmap
                     </h2>
-                    <div className="space-y-2">
-                      {tr.milestones.filter(m => m.milestone).map((m, i) => (
-                        <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-rule/20">
-                          <div className={cn('w-2 h-2 rounded-full shrink-0', {
-                            'bg-muted':    m.status === 'not-started',
-                            'bg-accent':   m.status === 'in-progress',
-                            'bg-emerald':  m.status === 'done',
-                            'bg-danger':   m.status === 'delayed',
-                          })} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-paper/90 text-sm font-medium">{m.milestone}</p>
-                            {m.successCriteria && <p className="text-muted text-xs mt-0.5">{m.successCriteria}</p>}
+                  }
+                  view={(v) => (
+                    v.filter(m => m.milestone).length > 0 ? (
+                      <div className="space-y-2">
+                        {v.filter(m => m.milestone).map((m, i) => (
+                          <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-rule/20">
+                            <div className={cn('w-2 h-2 rounded-full shrink-0', {
+                              'bg-muted': m.status === 'not-started',
+                              'bg-accent': m.status === 'in-progress',
+                              'bg-emerald': m.status === 'done',
+                              'bg-danger': m.status === 'delayed',
+                            })} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-paper/90 text-sm font-medium">{m.milestone}</p>
+                              {m.successCriteria && <p className="text-muted text-xs mt-0.5">{m.successCriteria}</p>}
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-xs text-muted">{m.targetDate}</p>
+                            </div>
                           </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-xs text-muted">{m.targetDate}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                        ))}
+                      </div>
+                    ) : <p className="text-muted italic text-sm">No milestones added yet</p>
+                  )}
+                  edit={(draft, set) => (
+                    <ArrayEditor
+                      items={draft}
+                      onChange={set}
+                      makeNew={() => ({ milestone: '', owner: '', targetDate: '', budget: '', successCriteria: '', status: 'not-started' })}
+                      gridClass="grid grid-cols-[2fr_1fr_1fr_1.5fr_1fr_auto] gap-2 items-start"
+                      columns={[
+                        { key: 'milestone', placeholder: 'Milestone' },
+                        { key: 'owner', placeholder: 'Owner' },
+                        { key: 'targetDate', placeholder: 'Target date' },
+                        { key: 'successCriteria', placeholder: 'Success criteria' },
+                        {
+                          key: 'status',
+                          render: (val: string, setVal) => (
+                            <select value={val || 'not-started'} onChange={e => setVal(e.target.value)} className="input-base text-xs">
+                              <option value="not-started">Not started</option>
+                              <option value="in-progress">In progress</option>
+                              <option value="done">Done</option>
+                              <option value="delayed">Delayed</option>
+                            </select>
+                          ),
+                        },
+                      ]}
+                    />
+                  )}
+                />
               </div>
             )}
 
             {/* ── Tab: Financials ───────────────────────────────────── */}
             {!activeFile && activeTab === 'financial' && (
               <div className="space-y-6 animate-fade-in">
-                <div className="section-card">
-                  <h2 className="font-display font-bold text-paper mb-4 flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-gold" /> Financial Snapshot
-                  </h2>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-                    {[
-                      { label: 'Revenue Model', value: financials?.revenueModel },
-                      { label: 'Gross Margin',  value: financials?.grossMargin },
-                      { label: 'Burn Rate',     value: financials?.burnRate },
-                      { label: 'Runway',        value: financials?.runway },
-                      { label: 'Break-even',    value: financials?.breakEvenTarget },
-                      { label: 'CAC',           value: financials?.cac },
-                      { label: 'LTV',           value: financials?.ltv },
-                    ].filter(i => i.value).map(item => (
-                      <div key={item.label} className="bg-rule/20 rounded-lg p-3">
-                        <p className="text-xs text-muted mb-1">{item.label}</p>
-                        <p className="text-paper font-mono text-sm font-medium">{item.value}</p>
-                      </div>
-                    ))}
-                  </div>
-
-                  {financials?.projections?.filter(p => p.revenue).length > 0 && (
+                {/* Financial Snapshot */}
+                <EditableSection
+                  canEdit={canEdit}
+                  value={{
+                    revenueModel: financials?.revenueModel || '',
+                    grossMargin: financials?.grossMargin || '',
+                    burnRate: financials?.burnRate || '',
+                    runway: financials?.runway || '',
+                    breakEvenTarget: financials?.breakEvenTarget || '',
+                    cac: financials?.cac || '',
+                    ltv: financials?.ltv || '',
+                    projections: (financials?.projections || []) as Array<{ year: string; revenue: string; ebitda: string; users: string }>,
+                  }}
+                  onSave={async (next) => savePatch({
+                    financials: {
+                      ...financials,
+                      revenueModel: next.revenueModel,
+                      grossMargin: next.grossMargin,
+                      burnRate: next.burnRate,
+                      runway: next.runway,
+                      breakEvenTarget: next.breakEvenTarget,
+                      cac: next.cac,
+                      ltv: next.ltv,
+                      projections: next.projections,
+                    } as any,
+                  })}
+                  header={
+                    <h2 className="font-display font-bold text-paper flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-gold" /> Financial Snapshot
+                    </h2>
+                  }
+                  view={(v) => (
                     <>
-                      <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-3">4-Year Projections</h3>
-                      <table className="wiki-table">
-                        <thead><tr><th></th><th>Revenue</th><th>EBITDA</th><th>Users</th></tr></thead>
-                        <tbody>
-                          {financials.projections.filter(p => p.revenue).map((p, i) => (
-                            <tr key={i}>
-                              <td className="font-medium text-muted">{p.year}</td>
-                              <td className="font-mono text-gold">{p.revenue}</td>
-                              <td className={cn('font-mono', p.ebitda?.startsWith('-') ? 'text-danger' : 'text-emerald-400')}>{p.ebitda}</td>
-                              <td className="font-mono text-teal">{p.users}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                        {[
+                          { label: 'Revenue Model', value: v.revenueModel },
+                          { label: 'Gross Margin', value: v.grossMargin },
+                          { label: 'Burn Rate', value: v.burnRate },
+                          { label: 'Runway', value: v.runway },
+                          { label: 'Break-even', value: v.breakEvenTarget },
+                          { label: 'CAC', value: v.cac },
+                          { label: 'LTV', value: v.ltv },
+                        ].filter(i => i.value).map(item => (
+                          <div key={item.label} className="bg-rule/20 rounded-lg p-3">
+                            <p className="text-xs text-muted mb-1">{item.label}</p>
+                            <p className="text-paper font-mono text-sm font-medium">{item.value}</p>
+                          </div>
+                        ))}
+                      </div>
+                      {v.projections.filter(p => p.revenue).length > 0 && (
+                        <>
+                          <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-3">Projections</h3>
+                          <table className="wiki-table">
+                            <thead><tr><th></th><th>Revenue</th><th>EBITDA</th><th>Users</th></tr></thead>
+                            <tbody>
+                              {v.projections.filter(p => p.revenue).map((p, i) => (
+                                <tr key={i}>
+                                  <td className="font-medium text-muted">{p.year}</td>
+                                  <td className="font-mono text-gold">{p.revenue}</td>
+                                  <td className={cn('font-mono', p.ebitda?.startsWith('-') ? 'text-danger' : 'text-emerald-400')}>{p.ebitda}</td>
+                                  <td className="font-mono text-teal">{p.users}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </>
+                      )}
                     </>
                   )}
-                </div>
-
-                {/* Funding ask */}
-                <div className="section-card">
-                  <h2 className="font-display font-bold text-paper mb-4">Funding Ask</h2>
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    {[
-                      { label: 'Total Raise',   value: fa?.totalRaise },
-                      { label: 'Instrument',    value: fa?.instrument },
-                      { label: 'Cap / Terms',   value: fa?.valuationCapTerms },
-                      { label: 'Target Close',  value: fa?.targetCloseDate },
-                    ].filter(i => i.value).map(item => (
-                      <div key={item.label} className="bg-rule/20 rounded-lg p-3">
-                        <p className="text-xs text-muted mb-1">{item.label}</p>
-                        <p className="text-paper text-sm font-medium">{item.value}</p>
-                      </div>
-                    ))}
-                  </div>
-                  {fa?.useOfFunds?.filter(u => u.category).length > 0 && (
-                    <table className="wiki-table">
-                      <thead><tr><th>Category</th><th>Amount</th><th>%</th><th>Milestone</th></tr></thead>
-                      <tbody>
-                        {fa.useOfFunds.filter(u => u.category).map((u, i) => (
-                          <tr key={i}>
-                            <td className="font-medium text-paper/90">{u.category}</td>
-                            <td className="font-mono text-gold">{u.amount}</td>
-                            <td className="font-mono text-sm">{u.percentage}</td>
-                            <td className="text-muted text-xs">{u.milestoneUnlocked}</td>
-                          </tr>
+                  edit={(draft, set) => (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {[
+                          ['revenueModel', 'Revenue Model', 'SaaS / Usage…'],
+                          ['grossMargin', 'Gross Margin', '70%'],
+                          ['burnRate', 'Monthly Burn', '$15,000/mo'],
+                          ['runway', 'Runway', '18 months'],
+                          ['breakEvenTarget', 'Break-even', 'Q3 2026'],
+                          ['cac', 'CAC', '$70 blended'],
+                          ['ltv', 'LTV', '$840'],
+                        ].map(([k, label, ph]) => (
+                          <EditField key={k} label={label}>
+                            <TextInput value={(draft as any)[k]} onChange={v => set({ ...draft, [k]: v })} placeholder={ph} />
+                          </EditField>
                         ))}
-                      </tbody>
-                    </table>
+                      </div>
+                      <EditField label="Projections">
+                        <ArrayEditor
+                          items={draft.projections}
+                          onChange={items => set({ ...draft, projections: items })}
+                          makeNew={() => ({ year: `Year ${draft.projections.length + 1}`, revenue: '', ebitda: '', users: '' })}
+                          gridClass="grid grid-cols-[1fr_1fr_1fr_1fr_auto] gap-2 items-start"
+                          columns={[
+                            { key: 'year', placeholder: 'Year' },
+                            { key: 'revenue', placeholder: '$120K' },
+                            { key: 'ebitda', placeholder: '-$80K' },
+                            { key: 'users', placeholder: '500' },
+                          ]}
+                        />
+                      </EditField>
+                    </div>
                   )}
-                </div>
+                />
 
-                {/* Risk register */}
-                {fa?.risks?.filter(r => r.risk).length > 0 && (
-                  <div className="section-card">
-                    <h2 className="font-display font-bold text-paper mb-4">Risk Register</h2>
-                    <table className="wiki-table">
-                      <thead><tr><th>Risk</th><th>Likelihood</th><th>Impact</th><th>Mitigation</th></tr></thead>
-                      <tbody>
-                        {fa.risks.filter(r => r.risk).map((r, i) => {
-                          const colors = { high: 'text-danger', medium: 'text-gold', low: 'text-emerald-400' }
-                          return (
-                            <tr key={i}>
-                              <td className="font-medium text-paper/90">{r.risk}</td>
-                              <td className={cn('font-medium text-xs', colors[r.likelihood])}>{r.likelihood?.toUpperCase()}</td>
-                              <td className={cn('font-medium text-xs', colors[r.impact])}>{r.impact?.toUpperCase()}</td>
-                              <td className="text-muted text-xs">{r.mitigation}</td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                {/* Funding Ask */}
+                <EditableSection
+                  canEdit={canEdit}
+                  value={{
+                    totalRaise: fa?.totalRaise || '',
+                    instrument: fa?.instrument || '',
+                    valuationCapTerms: fa?.valuationCapTerms || '',
+                    targetCloseDate: fa?.targetCloseDate || '',
+                    askOneLiner: fa?.askOneLiner || '',
+                    useOfFunds: (fa?.useOfFunds || []) as Array<{ category: string; amount: string; percentage: string; timeline: string; milestoneUnlocked: string }>,
+                  }}
+                  onSave={async (next) => savePatch({
+                    fundingAsk: {
+                      ...fa,
+                      totalRaise: next.totalRaise,
+                      instrument: next.instrument,
+                      valuationCapTerms: next.valuationCapTerms,
+                      targetCloseDate: next.targetCloseDate,
+                      askOneLiner: next.askOneLiner,
+                      useOfFunds: next.useOfFunds,
+                    } as any,
+                  })}
+                  header={<h2 className="font-display font-bold text-paper">Funding Ask</h2>}
+                  view={(v) => (
+                    <>
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        {[
+                          { label: 'Total Raise', value: v.totalRaise },
+                          { label: 'Instrument', value: v.instrument },
+                          { label: 'Cap / Terms', value: v.valuationCapTerms },
+                          { label: 'Target Close', value: v.targetCloseDate },
+                        ].filter(i => i.value).map(item => (
+                          <div key={item.label} className="bg-rule/20 rounded-lg p-3">
+                            <p className="text-xs text-muted mb-1">{item.label}</p>
+                            <p className="text-paper text-sm font-medium">{item.value}</p>
+                          </div>
+                        ))}
+                      </div>
+                      {v.askOneLiner && (
+                        <p className="text-paper/80 text-sm leading-relaxed mb-4 italic border-l-2 border-accent pl-3">
+                          {v.askOneLiner}
+                        </p>
+                      )}
+                      {v.useOfFunds.filter(u => u.category).length > 0 && (
+                        <table className="wiki-table">
+                          <thead><tr><th>Category</th><th>Amount</th><th>%</th><th>Milestone</th></tr></thead>
+                          <tbody>
+                            {v.useOfFunds.filter(u => u.category).map((u, i) => (
+                              <tr key={i}>
+                                <td className="font-medium text-paper/90">{u.category}</td>
+                                <td className="font-mono text-gold">{u.amount}</td>
+                                <td className="font-mono text-sm">{u.percentage}</td>
+                                <td className="text-muted text-xs">{u.milestoneUnlocked}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </>
+                  )}
+                  edit={(draft, set) => (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <EditField label="Total Raise">
+                          <TextInput value={draft.totalRaise} onChange={v => set({ ...draft, totalRaise: v })} placeholder="$500,000" />
+                        </EditField>
+                        <EditField label="Instrument">
+                          <TextInput value={draft.instrument} onChange={v => set({ ...draft, instrument: v })} placeholder="SAFE / Note / Equity" />
+                        </EditField>
+                        <EditField label="Cap / Terms">
+                          <TextInput value={draft.valuationCapTerms} onChange={v => set({ ...draft, valuationCapTerms: v })} placeholder="$5M cap" />
+                        </EditField>
+                        <EditField label="Target Close">
+                          <TextInput value={draft.targetCloseDate} onChange={v => set({ ...draft, targetCloseDate: v })} placeholder="Q3 2026" />
+                        </EditField>
+                      </div>
+                      <EditField label="Ask in one sentence">
+                        <TextArea value={draft.askOneLiner} onChange={v => set({ ...draft, askOneLiner: v })} placeholder="We're raising $X to…" rows={2} />
+                      </EditField>
+                      <EditField label="Use of Funds">
+                        <ArrayEditor
+                          items={draft.useOfFunds}
+                          onChange={items => set({ ...draft, useOfFunds: items })}
+                          makeNew={() => ({ category: '', amount: '', percentage: '', timeline: '', milestoneUnlocked: '' })}
+                          gridClass="grid grid-cols-[1.5fr_1fr_1fr_1fr_auto] gap-2 items-start"
+                          columns={[
+                            { key: 'category', placeholder: 'Category' },
+                            { key: 'amount', placeholder: 'Amount' },
+                            { key: 'percentage', placeholder: '%' },
+                            { key: 'milestoneUnlocked', placeholder: 'Milestone unlocked' },
+                          ]}
+                        />
+                      </EditField>
+                    </div>
+                  )}
+                />
+
+                {/* Risk Register */}
+                <EditableSection
+                  canEdit={canEdit}
+                  value={(fa?.risks || []) as Array<{ risk: string; likelihood: 'low' | 'medium' | 'high'; impact: 'low' | 'medium' | 'high'; mitigation: string }>}
+                  onSave={async (next) => savePatch({ fundingAsk: { ...fa, risks: next } as any })}
+                  header={<h2 className="font-display font-bold text-paper">Risk Register</h2>}
+                  view={(v) => (
+                    v.filter(r => r.risk).length > 0 ? (
+                      <table className="wiki-table">
+                        <thead><tr><th>Risk</th><th>Likelihood</th><th>Impact</th><th>Mitigation</th></tr></thead>
+                        <tbody>
+                          {v.filter(r => r.risk).map((r, i) => {
+                            const colors = { high: 'text-danger', medium: 'text-gold', low: 'text-emerald-400' }
+                            return (
+                              <tr key={i}>
+                                <td className="font-medium text-paper/90">{r.risk}</td>
+                                <td className={cn('font-medium text-xs', colors[r.likelihood])}>{r.likelihood?.toUpperCase()}</td>
+                                <td className={cn('font-medium text-xs', colors[r.impact])}>{r.impact?.toUpperCase()}</td>
+                                <td className="text-muted text-xs">{r.mitigation}</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    ) : <p className="text-muted italic text-sm">No risks identified yet.</p>
+                  )}
+                  edit={(draft, set) => (
+                    <ArrayEditor
+                      items={draft}
+                      onChange={set}
+                      makeNew={() => ({ risk: '', likelihood: 'medium' as const, impact: 'medium' as const, mitigation: '' })}
+                      gridClass="grid grid-cols-[1.5fr_1fr_1fr_1.5fr_auto] gap-2 items-start"
+                      columns={[
+                        { key: 'risk', placeholder: 'Risk' },
+                        {
+                          key: 'likelihood',
+                          render: (val: string, setVal) => (
+                            <select value={val || 'medium'} onChange={e => setVal(e.target.value)} className="input-base text-xs">
+                              <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
+                            </select>
+                          ),
+                        },
+                        {
+                          key: 'impact',
+                          render: (val: string, setVal) => (
+                            <select value={val || 'medium'} onChange={e => setVal(e.target.value)} className="input-base text-xs">
+                              <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
+                            </select>
+                          ),
+                        },
+                        { key: 'mitigation', placeholder: 'Mitigation' },
+                      ]}
+                    />
+                  )}
+                />
               </div>
             )}
 
