@@ -110,9 +110,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Your GitHub (signed-in only) ─────────────────────────────────── */}
-      {session && <MyGitHubPanel />}
-
       {/* ── Featured ──────────────────────────────────────────────────────── */}
       {featured.length > 0 && (
         <section className="border-b border-rule">
@@ -203,6 +200,9 @@ export default function HomePage() {
           </div>
         )}
       </section>
+
+      {/* ── Your GitHub (signed-in only) ─────────────────────────────────── */}
+      {session && <MyGitHubPanel />}
     </div>
   )
 }

@@ -20,7 +20,7 @@ export default function MyGitHubPanel() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [visFilter, setVisFilter] = useState<VisFilter>('all')
   const [showForks, setShowForks] = useState(true)
-  const [collapsedOwners, setCollapsedOwners] = useState<Set<string>>(new Set())
+  const [expandedOwners, setExpandedOwners] = useState<Set<string>>(new Set())
 
   const [onboarding, setOnboarding] = useState<string | null>(null)
   const [onboardError, setOnboardError] = useState<string | null>(null)
@@ -82,7 +82,7 @@ export default function MyGitHubPanel() {
   }, [filtered])
 
   const toggleOwner = (owner: string) => {
-    setCollapsedOwners(s => {
+    setExpandedOwners(s => {
       const next = new Set(s)
       if (next.has(owner)) next.delete(owner)
       else next.add(owner)
@@ -206,7 +206,7 @@ export default function MyGitHubPanel() {
           ) : (
             <div className="space-y-3">
               {grouped.map(([owner, list]) => {
-                const collapsed = collapsedOwners.has(owner)
+                const collapsed = !expandedOwners.has(owner)
                 return (
                   <div key={owner} className="bg-lead border border-rule rounded-xl overflow-hidden">
                     <button
