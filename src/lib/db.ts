@@ -1043,3 +1043,29 @@ export async function readVentureFile(
     return null
   }
 }
+
+export async function readVentureFileBuffer(
+  slug: string,
+  filePath: string,
+): Promise<{ name: string; bytes: Buffer } | null> {
+  if (filePath.includes('..') || filePath.includes('/') || filePath.includes('\\')) return null
+  if (VW_SYSTEM_FILES.has(filePath)) return null
+
+  const owner = await resolveBusinessOwner(slug)
+  if (!owner) return null
+
+  try {
+    const octokit = getPublicOctokit()
+    const { data } = await octokit.rest.repos.getContent({
+      owner,
+      repo: slug,
+      path: `.venturewiki/${filePath}`,
+    })
+    if ('content' in data && data.type === 'file') {
+      return { name: data.name, bytes: Buffer.from(data.content, 'base64') }
+    }
+    return null
+  } catch {
+    return null
+  }
+}

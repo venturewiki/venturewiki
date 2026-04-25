@@ -18,17 +18,30 @@ import MentionInput from '@/components/business/MentionInput'
 import InvitePersonModal from '@/components/business/InvitePersonModal'
 import { fetchBusiness, incrementViewCount, toggleFeatured, fetchEditHistory, fetchComments, postComment, fetchCandidates, fetchValidations, fetchInvestments, fetchVentureValue, fetchVentureFiles, fetchVentureFile, createVentureFile, updateBusiness, inviteCollaborator, applyForRole, type VentureFile, type GhUserHit } from '@/lib/api'
 import { cn, STAGE_LABELS, STAGE_COLORS, TYPE_ICONS, TYPE_LABELS, formatRelativeTime, formatNumber } from '@/lib/utils'
+import { categoryFromName } from '@/lib/mime'
 import type { BusinessPlan, EditRecord, Comment, RoleCandidate, Validation, InvestmentInterest, VentureValue } from '@/types'
 
 const ReactMarkdown = dynamic(() => import('react-markdown'), { ssr: false })
 
-function fileExt(name: string) {
-  const i = name.lastIndexOf('.')
-  return i >= 0 ? name.slice(i + 1).toLowerCase() : ''
+const TAB_IDS = [
+  'overview', 'product', 'team', 'candidates',
+  'validations', 'financial', 'invest', 'history', 'discuss',
+] as const
+const TAB_ID_SET: ReadonlySet<string> = new Set(TAB_IDS)
+
+function encodePathSegment(s: string) {
+  return s.split('/').map(encodeURIComponent).join('/')
+}
+
+function rawFileUrl(slug: string, path: string) {
+  return `/api/businesses/${encodeURIComponent(slug)}/files/${encodePathSegment(path)}?raw=1`
 }
 
 export default function BusinessPage() {
-  const { slug }            = useParams<{ slug: string }>()
+  const params              = useParams<{ slug: string; path?: string[] }>()
+  const slug                = params.slug
+  const pathSegments        = params.path ?? []
+  const firstSegment        = pathSegments[0]
   const { data: session }   = useSession()
   const router              = useRouter()
   const [business, setBusiness]     = useState<BusinessPlan | null>(null)
@@ -39,12 +52,18 @@ export default function BusinessPage() {
   const [investments, setInvestments] = useState<InvestmentInterest[]>([])
   const [ventureValue, setVentureValue] = useState<VentureValue | null>(null)
   const [newComment, setNewComment] = useState('')
-  const [activeTab, setActiveTab]   = useState('overview')
   const [loading, setLoading]       = useState(true)
   const [files, setFiles]           = useState<VentureFile[]>([])
-  const [activeFile, setActiveFile] = useState<string | null>(null)
   const [fileContent, setFileContent] = useState<{ name: string; content: string } | null>(null)
   const [fileLoading, setFileLoading] = useState(false)
+
+  // URL → state derivation. The first sub-segment is either a tab id or a file
+  // name. Anything we don't recognise falls back to overview.
+  const isFile  = !!firstSegment && !TAB_ID_SET.has(firstSegment)
+  const activeFile: string | null = isFile ? firstSegment : null
+  const activeTab: string         = !firstSegment || isFile
+    ? 'overview'
+    : firstSegment
 
   useEffect(() => {
     if (!slug) return
@@ -66,6 +85,10 @@ export default function BusinessPage() {
 
   useEffect(() => {
     if (!business || !activeFile) { setFileContent(null); return }
+    // Only fetch text content when the file viewer needs it (markdown/text).
+    // Binary categories render via the raw URL — no JSON fetch required.
+    const cat = categoryFromName(activeFile)
+    if (cat !== 'markdown' && cat !== 'text') { setFileContent(null); return }
     setFileLoading(true)
     fetchVentureFile(business.id, activeFile)
       .then(setFileContent)
@@ -73,8 +96,13 @@ export default function BusinessPage() {
       .finally(() => setFileLoading(false))
   }, [business, activeFile])
 
-  const selectTab = (id: string) => { setActiveTab(id); setActiveFile(null) }
-  const selectFile = (path: string) => { setActiveFile(path) }
+  const selectTab = (id: string) => {
+    const target = id === 'overview' ? `/business/${slug}` : `/business/${slug}/${id}`
+    router.replace(target, { scroll: false })
+  }
+  const selectFile = (path: string) => {
+    router.replace(`/business/${slug}/${encodePathSegment(path)}`, { scroll: false })
+  }
 
   const savePatch = async (patch: Partial<BusinessPlan>) => {
     if (!business) return
@@ -136,7 +164,7 @@ export default function BusinessPage() {
       const refreshed = await fetchVentureFiles(business.id)
       setFiles(refreshed)
       setAddFileOpen(false)
-      setActiveFile(created)
+      selectFile(created)
     } catch (e: any) {
       setNewFileError(e?.message || 'Failed to create file')
     } finally {
@@ -403,29 +431,81 @@ export default function BusinessPage() {
             </div>
 
             {/* ── File viewer ────────────────────────────────────────── */}
-            {activeFile && (
+            {activeFile && (() => {
+              const displayName = fileContent?.name || activeFile
+              const category = categoryFromName(displayName)
+              const rawUrl = rawFileUrl(business.id, activeFile)
+              const needsTextContent = category === 'markdown' || category === 'text'
+              return (
               <div className="section-card animate-fade-in">
-                <div className="flex items-center gap-2 mb-4">
-                  <FileText className="w-4 h-4 text-accent shrink-0" />
-                  <h2 className="font-display font-bold text-paper truncate">
-                    {fileContent?.name || activeFile}
-                  </h2>
-                </div>
-                {fileLoading ? (
-                  <div className="h-32 shimmer rounded-lg" />
-                ) : !fileContent ? (
-                  <p className="text-muted italic text-sm">File not available.</p>
-                ) : ['md', 'markdown'].includes(fileExt(fileContent.name)) ? (
-                  <div className="prose prose-invert prose-sm max-w-none">
-                    <ReactMarkdown>{fileContent.content}</ReactMarkdown>
+                <div className="flex items-center justify-between gap-2 mb-4">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText className="w-4 h-4 text-accent shrink-0" />
+                    <h2 className="font-display font-bold text-paper truncate">{displayName}</h2>
                   </div>
+                  <a
+                    href={rawUrl}
+                    download={displayName}
+                    className="text-xs text-muted hover:text-paper underline-offset-2 hover:underline shrink-0"
+                  >
+                    Download
+                  </a>
+                </div>
+                {needsTextContent && fileLoading ? (
+                  <div className="h-32 shimmer rounded-lg" />
+                ) : category === 'markdown' ? (
+                  fileContent ? (
+                    <div className="prose prose-invert prose-sm max-w-none">
+                      <ReactMarkdown>{fileContent.content}</ReactMarkdown>
+                    </div>
+                  ) : (
+                    <p className="text-muted italic text-sm">File not available.</p>
+                  )
+                ) : category === 'html' ? (
+                  // Sandbox with no flags = scripts/forms/popups blocked, opaque origin.
+                  // The HTML still renders (text, styling, images via the same origin).
+                  <iframe
+                    src={rawUrl}
+                    sandbox=""
+                    className="w-full min-h-[70vh] rounded-lg bg-white border border-rule"
+                    title={displayName}
+                  />
+                ) : category === 'image' ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={rawUrl}
+                    alt={displayName}
+                    className="max-w-full h-auto rounded-lg mx-auto"
+                  />
+                ) : category === 'video' ? (
+                  <video src={rawUrl} controls className="w-full max-h-[80vh] rounded-lg bg-black" />
+                ) : category === 'audio' ? (
+                  <audio src={rawUrl} controls className="w-full" />
+                ) : category === 'pdf' ? (
+                  <iframe
+                    src={rawUrl}
+                    className="w-full min-h-[80vh] rounded-lg bg-white border border-rule"
+                    title={displayName}
+                  />
+                ) : category === 'text' ? (
+                  fileContent ? (
+                    <pre className="bg-rule/30 border border-rule rounded-lg p-4 text-xs text-paper/90 font-mono overflow-x-auto whitespace-pre-wrap break-words">
+                      {fileContent.content}
+                    </pre>
+                  ) : (
+                    <p className="text-muted italic text-sm">File not available.</p>
+                  )
                 ) : (
-                  <pre className="bg-rule/30 border border-rule rounded-lg p-4 text-xs text-paper/90 font-mono overflow-x-auto whitespace-pre-wrap break-words">
-                    {fileContent.content}
-                  </pre>
+                  // Unknown / binary: no safe inline render, offer a download.
+                  <div className="flex flex-col items-center gap-3 py-10 text-sm text-muted">
+                    <FileText className="w-10 h-10 opacity-40" />
+                    <p>This file type can't be previewed inline.</p>
+                    <a href={rawUrl} download={displayName} className="btn-secondary">Download {displayName}</a>
+                  </div>
                 )}
               </div>
-            )}
+              )
+            })()}
 
             {/* ── Tab: Overview ─────────────────────────────────────── */}
             {!activeFile && activeTab === 'overview' && (
