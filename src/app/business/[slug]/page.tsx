@@ -15,6 +15,7 @@ import { fetchBusiness, incrementViewCount, toggleFeatured, fetchEditHistory, fe
 import { useCallback } from 'react'
 import dynamic from 'next/dynamic'
 const ReactMarkdown = dynamic(() => import('react-markdown'), { ssr: false })
+import { Dialog } from '@headlessui/react'
 import { cn, STAGE_LABELS, STAGE_COLORS, TYPE_ICONS, TYPE_LABELS, formatRelativeTime, formatNumber } from '@/lib/utils'
 import type { BusinessPlan, EditRecord, Comment, RoleCandidate, Validation, InvestmentInterest, VentureValue } from '@/types'
 
@@ -95,10 +96,10 @@ export default function BusinessPage() {
   const [newComment, setNewComment] = useState('')
   const [activeTab, setActiveTab]   = useState('overview')
   const [loading, setLoading]       = useState(true)
-  // File tree and viewer state
+  // File tree and modal viewer state
   const [fileTree, setFileTree] = useState<any[]>([])
-  const [selectedFile, setSelectedFile] = useState<any | null>(null)
-  const [selectedPath, setSelectedPath] = useState<string>('')
+  const [modalFile, setModalFile] = useState<any | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
 
   // Fetch .venturewiki file tree on mount
   useEffect(() => {
@@ -106,17 +107,16 @@ export default function BusinessPage() {
     fetch(`/api/businesses/${slug}/files`).then(r => r.json()).then(setFileTree)
   }, [slug])
 
-  // Fetch file content when selectedPath changes
-  useEffect(() => {
-    if (!slug || !selectedPath) return setSelectedFile(null)
-    fetch(`/api/businesses/${slug}/files?path=${encodeURIComponent(selectedPath)}`)
-      .then(r => r.json())
-      .then(setSelectedFile)
-  }, [slug, selectedPath])
-
+  // Open file in modal (except plan.yaml)
   const handleSelectFile = useCallback((path: string) => {
-    setSelectedPath(path)
-  }, [])
+    if (path === 'plan.yaml') return // Don't open plan.yaml in modal
+    fetch(`/api/businesses/${slug}/files?path=${encodeURIComponent(path)}`)
+      .then(r => r.json())
+      .then(file => {
+        setModalFile(file)
+        setModalOpen(true)
+      })
+  }, [slug])
 
   useEffect(() => {
     if (!slug) return
@@ -204,20 +204,27 @@ export default function BusinessPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* File explorer and viewer */}
         <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-8 mb-10">
           <aside className="bg-rule/10 rounded-xl p-4 min-h-[60vh] max-h-[80vh] overflow-auto">
             <div className="font-bold text-accent mb-2 text-sm">.venturewiki files</div>
-            <FileTree tree={fileTree} onSelect={handleSelectFile} selectedPath={selectedPath} />
+            <FileTree tree={fileTree} onSelect={handleSelectFile} selectedPath={''} />
           </aside>
-          <section className="bg-rule/10 rounded-xl p-4 min-h-[60vh] max-h-[80vh] overflow-auto flex flex-col">
-            <div className="font-bold text-paper/80 mb-2 text-sm">{selectedFile?.name || 'Select a file'}</div>
-            <div className="flex-1 overflow-auto">
-              <FileViewer file={selectedFile} />
-            </div>
+          {/* Main business content stays as before */}
+          <section className="min-w-0">
+            {/* ...existing business plan layout, tabs, etc... */}
+            {/* The rest of the file remains unchanged, so plan.yaml is always the main content */}
+            {/* Modal for other files */}
+            <Dialog open={modalOpen} onClose={() => setModalOpen(false)} className="fixed z-50 inset-0 flex items-center justify-center">
+              <Dialog.Overlay className="fixed inset-0 bg-black/60" />
+              <div className="relative bg-ink border border-rule rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-auto p-6">
+                <button className="absolute top-2 right-2 text-muted hover:text-accent" onClick={() => setModalOpen(false)}>&times;</button>
+                <div className="font-bold text-accent mb-2 text-lg">{modalFile?.name}</div>
+                <FileViewer file={modalFile} />
+              </div>
+            </Dialog>
+            {/* ...existing business plan content continues... */}
           </section>
         </div>
-        {/* Main business content */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8">
 
           {/* ── Main column ────────────────────────────────────────────── */}
