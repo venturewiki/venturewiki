@@ -103,14 +103,23 @@ export default function BusinessEditorPage() {
     })
   }, [params.slug, isNew, reset])
 
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (session === null) router.push('/api/auth/signin')
-  }, [session, router])
+  // Anonymous users can create too — repo is forced to the venturewiki org.
+  // No redirect to sign-in.
 
-  // Load possible target owners (personal account + each org the user belongs to)
+  // Load possible target owners (personal account + each org). Only for signed-in users.
   useEffect(() => {
-    if (!isNew || !session?.user?.login) return
+    if (!isNew) return
+    if (!session?.user?.login) {
+      // Anonymous: lock to venturewiki org. Picker is hidden via the banner below.
+      const anon = {
+        key: 'anon:venturewiki',
+        label: 'venturewiki org (anonymous)',
+        target: { type: 'org' as const, login: 'venturewiki' },
+      }
+      setOwnerOptions([anon])
+      setOwnerKey(anon.key)
+      return
+    }
     const personal = {
       key: `user:${session.user.login}`,
       label: `Personal · @${session.user.login}`,
@@ -170,7 +179,6 @@ export default function BusinessEditorPage() {
   }
 
   const onSubmit = async (data: any) => {
-    if (!session) return
     setSaving(true)
     try {
       // Convert radio string to boolean
@@ -178,7 +186,7 @@ export default function BusinessEditorPage() {
       if (isNew) {
         const target = ownerOptions.find(o => o.key === ownerKey)?.target
         const { slug } = await createBusiness(
-          { ...data, createdBy: session.user.id },
+          { ...data, createdBy: session?.user?.id || 'anonymous' },
           target,
         )
         toast.success('Business plan created!')
@@ -241,7 +249,19 @@ export default function BusinessEditorPage() {
               <div className="flex items-center gap-2 mb-3">
                 <h2 className="font-display font-bold text-paper text-base">Where to create the GitHub repo</h2>
               </div>
-              {ownerOptions.length === 1 ? (
+              {!session ? (
+                <div className="space-y-2">
+                  <p className="text-muted text-sm">
+                    You&apos;re not signed in. The repo will be created in the
+                    {' '}<span className="text-paper font-mono">venturewiki</span>{' '}
+                    org as an anonymous contribution. You won&apos;t be able to claim or edit
+                    it later from another device.
+                  </p>
+                  <a href="/api/auth/signin" className="btn-ghost text-xs inline-flex">
+                    Sign in to create under your own account →
+                  </a>
+                </div>
+              ) : ownerOptions.length === 1 ? (
                 <p className="text-muted text-sm">
                   Will be created under <span className="text-paper font-mono">{ownerOptions[0].label}</span>.
                 </p>

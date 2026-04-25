@@ -31,6 +31,7 @@ export interface BusinessPlan {
   // ── Meta ──────────────────────────────────────────────────────────────────
   id: string
   slug: string
+  owner?: string           // GitHub owner login (org or user) — added in Phase 2
   createdAt: string
   updatedAt: string
   createdBy: string        // user id

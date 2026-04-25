@@ -148,7 +148,9 @@ export default function BusinessPage() {
 
   const { cover, problemSolution: ps, productGtm: gtm, teamRoadmap: tr, fundingAsk: fa, financials } = business
   const isAdmin  = session?.user.role === 'admin'
-  const canEdit  = session && (session.user.role === 'editor' || isAdmin)
+  const canEdit  = !!session
+    ? (session.user.role === 'editor' || isAdmin)
+    : business.owner === 'venturewiki' // anonymous edits allowed only on venturewiki-org repos
 
   const TABS = [
     { id: 'overview',    label: 'Overview',        icon: Globe },

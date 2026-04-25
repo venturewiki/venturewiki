@@ -92,13 +92,12 @@ export default function EditBusinessPage() {
   )
 
   const onSubmit = async (data: any) => {
-    if (!session?.user) { toast.error('Sign in required'); return }
     setSaving(true)
     try {
-      await updateBusiness(
-        biz!.id, data,
-        `Edited by ${session.user.name}`
-      )
+      const summary = session?.user
+        ? `Edited by ${session.user.name}`
+        : 'Edited anonymously'
+      await updateBusiness(biz!.id, data, summary)
       toast.success('Changes saved!')
       router.push(`/business/${biz!.id}`)
     } catch (e: any) {

@@ -187,6 +187,7 @@ function repoToPlan(repo: any, planData: any): BusinessPlan {
     ...planData,
     id: repo.name,
     slug: repo.name,
+    owner: repo.owner?.login,
     createdAt: repo.created_at,
     updatedAt: repo.pushed_at || repo.updated_at,
     viewCount: repo.watchers_count || 0,

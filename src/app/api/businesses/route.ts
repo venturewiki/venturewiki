@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getBusinesses, createBusiness, type CreateBusinessTarget } from '@/lib/db'
-import { getUserOctokit } from '@/lib/github'
+import { getUserOctokit, getAdminOctokit, GITHUB_ORG } from '@/lib/github'
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,25 +34,52 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  if (!session?.user?.id || !session.accessToken) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   const body = await req.json()
-  const { target, ...data } = body as { target?: CreateBusinessTarget } & any
+  const { target: requestedTarget, ...data } = body as { target?: CreateBusinessTarget } & any
 
-  // Default to creating under the user's personal account if no target is given
-  const resolvedTarget: CreateBusinessTarget = target ?? {
-    type: 'user',
-    login: session.user.login || session.user.name || '',
+  let octokit, userId, target: CreateBusinessTarget, isAnonymous = false
+
+  if (session?.user?.id && session.accessToken) {
+    octokit = getUserOctokit(session.accessToken)
+    userId = session.user.id
+    target = requestedTarget ?? {
+      type: 'user',
+      login: session.user.login || session.user.name || '',
+    }
+  } else {
+    // Anonymous: forced to the venturewiki org via the platform admin token,
+    // attributed to a placeholder user, and rate-limited per IP.
+    const ip = getClientIp(req.headers)
+    const rl = checkRateLimit(`anon-create:${ip}`, 3, 60 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: `Too many anonymous creates. Try again in ${rl.retryAfter}s, or sign in.` },
+        { status: 429 },
+      )
+    }
+    octokit = getAdminOctokit()
+    userId = 'anonymous'
+    target = { type: 'org', login: GITHUB_ORG }
+    isAnonymous = true
   }
-  if (!resolvedTarget.login) {
-    return NextResponse.json({ error: 'No GitHub login on session' }, { status: 400 })
+
+  if (!target.login) {
+    return NextResponse.json({ error: 'No target login resolved' }, { status: 400 })
   }
 
   try {
-    const octokit = getUserOctokit(session.accessToken)
-    const { slug, owner } = await createBusiness(data, session.user.id, resolvedTarget, octokit)
+    const { slug, owner } = await createBusiness(data, userId, target, octokit)
+
+    // Tag anonymous-created repos so admins can spot/clean them.
+    if (isAnonymous) {
+      try {
+        const admin = getAdminOctokit()
+        const { data: repo } = await admin.rest.repos.get({ owner, repo: slug })
+        const topics = Array.from(new Set([...(repo.topics || []), 'venturewiki-anonymous']))
+        await admin.rest.repos.replaceAllTopics({ owner, repo: slug, names: topics })
+      } catch { /* best-effort */ }
+    }
+
     return NextResponse.json({ slug, owner })
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Failed to create business' }, { status: 500 })
