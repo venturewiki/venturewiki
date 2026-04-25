@@ -865,6 +865,38 @@ export async function listVentureFiles(slug: string): Promise<VentureFile[]> {
   }
 }
 
+function validateVentureFilename(filePath: string): void {
+  if (!filePath.trim()) throw new Error('Filename is required')
+  if (filePath.includes('..') || filePath.includes('/') || filePath.includes('\\')) {
+    throw new Error('Filename must not contain path separators')
+  }
+  if (filePath.startsWith('.')) throw new Error('Filename cannot start with a dot')
+  if (VW_SYSTEM_FILES.has(filePath)) throw new Error('That filename is reserved')
+  if (filePath.length > 100) throw new Error('Filename is too long')
+  if (!/^[A-Za-z0-9._-]+$/.test(filePath)) {
+    throw new Error('Filename may only contain letters, numbers, dot, dash, underscore')
+  }
+}
+
+export async function createVentureFile(
+  slug: string,
+  filePath: string,
+  content: string,
+  message: string,
+): Promise<void> {
+  validateVentureFilename(filePath)
+  const octokit = getAdminOctokit()
+  await octokit.rest.repos.createOrUpdateFileContents({
+    owner: GITHUB_ORG,
+    repo: slug,
+    path: `.venturewiki/${filePath}`,
+    message,
+    content: encodeContent(content),
+  })
+  invalidateCache(`vwfiles:${slug}`)
+  invalidateCache(`vwfile:${slug}:${filePath}`)
+}
+
 export async function readVentureFile(
   slug: string,
   filePath: string,

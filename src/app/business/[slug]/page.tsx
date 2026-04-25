@@ -9,10 +9,10 @@ import {
   Eye, GitBranch, Clock, Edit3, Star, Archive, ArrowLeft,
   Globe, Cpu, DollarSign, Users, Target, Map, MessageSquare,
   ChevronRight, AlertTriangle, TrendingUp, Zap, UserPlus,
-  ShieldCheck, HandCoins, BarChart3, FileText
+  ShieldCheck, HandCoins, BarChart3, FileText, FilePlus, X
 } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
-import { fetchBusiness, incrementViewCount, toggleFeatured, fetchEditHistory, fetchComments, postComment, fetchCandidates, fetchValidations, fetchInvestments, fetchVentureValue, fetchVentureFiles, fetchVentureFile, type VentureFile } from '@/lib/api'
+import { fetchBusiness, incrementViewCount, toggleFeatured, fetchEditHistory, fetchComments, postComment, fetchCandidates, fetchValidations, fetchInvestments, fetchVentureValue, fetchVentureFiles, fetchVentureFile, createVentureFile, type VentureFile } from '@/lib/api'
 import { cn, STAGE_LABELS, STAGE_COLORS, TYPE_ICONS, TYPE_LABELS, formatRelativeTime, formatNumber } from '@/lib/utils'
 import type { BusinessPlan, EditRecord, Comment, RoleCandidate, Validation, InvestmentInterest, VentureValue } from '@/types'
 
@@ -71,6 +71,45 @@ export default function BusinessPage() {
 
   const selectTab = (id: string) => { setActiveTab(id); setActiveFile(null) }
   const selectFile = (path: string) => { setActiveFile(path) }
+
+  const [addFileOpen, setAddFileOpen] = useState(false)
+  const [newFileName, setNewFileName] = useState('')
+  const [newFileContent, setNewFileContent] = useState('')
+  const [newFileError, setNewFileError] = useState<string | null>(null)
+  const [newFileSaving, setNewFileSaving] = useState(false)
+
+  const openAddFile = () => {
+    setNewFileName('')
+    setNewFileContent('')
+    setNewFileError(null)
+    setAddFileOpen(true)
+  }
+
+  const handleUploadPick = (file: File) => {
+    setNewFileError(null)
+    if (!newFileName.trim()) setNewFileName(file.name)
+    const reader = new FileReader()
+    reader.onload = () => setNewFileContent(typeof reader.result === 'string' ? reader.result : '')
+    reader.onerror = () => setNewFileError('Could not read file (must be a text file)')
+    reader.readAsText(file)
+  }
+
+  const submitNewFile = async () => {
+    if (!business) return
+    setNewFileError(null)
+    setNewFileSaving(true)
+    try {
+      const created = await createVentureFile(business.id, newFileName.trim(), newFileContent)
+      const refreshed = await fetchVentureFiles(business.id)
+      setFiles(refreshed)
+      setAddFileOpen(false)
+      setActiveFile(created)
+    } catch (e: any) {
+      setNewFileError(e?.message || 'Failed to create file')
+    } finally {
+      setNewFileSaving(false)
+    }
+  }
 
   const handleComment = async () => {
     if (!newComment.trim() || !session || !business) return
@@ -168,6 +207,15 @@ export default function BusinessPage() {
                       </button>
                     )
                   })}
+                  {canEdit && (
+                    <button
+                      onClick={openAddFile}
+                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-left transition-colors text-teal/80 hover:bg-teal/10 hover:text-teal border-l-2 border-transparent border-t border-rule/50 mt-1 pt-3"
+                    >
+                      <FilePlus className="w-4 h-4 shrink-0" />
+                      <span className="truncate">Add File</span>
+                    </button>
+                  )}
                 </nav>
               </div>
 
@@ -954,6 +1002,84 @@ export default function BusinessPage() {
           </aside>
         </div>
       </div>
+
+      {addFileOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          onClick={() => !newFileSaving && setAddFileOpen(false)}
+        >
+          <div className="absolute inset-0 bg-black/70" />
+          <div
+            className="relative bg-ink border border-rule rounded-xl shadow-xl max-w-xl w-full max-h-[85vh] overflow-auto p-6"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-display font-bold text-paper text-lg flex items-center gap-2">
+                <FilePlus className="w-5 h-5 text-teal" /> Add File
+              </h2>
+              <button
+                className="text-muted hover:text-paper"
+                onClick={() => !newFileSaving && setAddFileOpen(false)}
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-muted mb-4">
+              Adds a file to <code className="bg-rule/40 px-1 rounded font-mono">.venturewiki/</code> in this venture&apos;s repository.
+              Letters, numbers, dot, dash, underscore only.
+            </p>
+
+            <label className="block text-xs uppercase tracking-wider text-muted mb-1 font-mono">Filename</label>
+            <input
+              type="text"
+              value={newFileName}
+              onChange={e => setNewFileName(e.target.value)}
+              placeholder="e.g. notes.md"
+              className="input-base mb-4 font-mono text-sm"
+              autoFocus
+            />
+
+            <label className="block text-xs uppercase tracking-wider text-muted mb-1 font-mono">Upload from disk (optional)</label>
+            <input
+              type="file"
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadPick(f) }}
+              className="block w-full text-xs text-paper/70 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-accent/20 file:text-accent file:text-xs file:cursor-pointer hover:file:bg-accent/30 mb-4"
+            />
+
+            <label className="block text-xs uppercase tracking-wider text-muted mb-1 font-mono">Content</label>
+            <textarea
+              value={newFileContent}
+              onChange={e => setNewFileContent(e.target.value)}
+              rows={10}
+              placeholder="Paste or type the file contents here…"
+              className="input-base font-mono text-xs resize-y w-full"
+            />
+
+            {newFileError && (
+              <p className="text-rose-400 text-sm mt-3">{newFileError}</p>
+            )}
+
+            <div className="flex justify-end gap-2 mt-5">
+              <button
+                className="btn-ghost"
+                onClick={() => setAddFileOpen(false)}
+                disabled={newFileSaving}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                onClick={submitNewFile}
+                disabled={newFileSaving || !newFileName.trim()}
+              >
+                {newFileSaving ? 'Saving…' : 'Create File'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

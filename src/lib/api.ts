@@ -253,6 +253,20 @@ export async function fetchVentureFile(slug: string, path: string): Promise<{ na
   return res.json()
 }
 
+export async function createVentureFile(slug: string, name: string, content: string): Promise<string> {
+  const res = await fetch(`/api/businesses/${encodeURIComponent(slug)}/files`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, content }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Failed to create file' }))
+    throw new Error(err.error)
+  }
+  const data = await res.json()
+  return data.name
+}
+
 // ── Stripe Subscription ──────────────────────────────────────────────────────
 
 export async function createCheckoutSession(plan: 'monthly' | 'yearly'): Promise<string> {
