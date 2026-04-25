@@ -7,7 +7,7 @@ import { fetchMyOrgs, fetchMyRepos, onboardRepoToVentureWiki, type MyOrg, type M
 type StatusFilter = 'all' | 'on-vw' | 'not-vw'
 type VisFilter = 'all' | 'public' | 'private'
 
-export default function MyGitHubPanel() {
+export default function MyGitHubPanel({ onChange }: { onChange?: () => void } = {}) {
   const [orgs, setOrgs] = useState<MyOrg[]>([])
   const [repos, setRepos] = useState<MyRepo[]>([])
   const [scopes, setScopes] = useState<string[]>([])
@@ -50,6 +50,12 @@ export default function MyGitHubPanel() {
     try {
       await onboardRepoToVentureWiki(r.owner, r.name)
       await load()
+      // Trigger an immediate parent refresh so the new venture shows in
+      // "All Ventures" without waiting for the next 2-min poll. GitHub's
+      // search index also has a small lag, so do a second refresh ~5s
+      // later in case the first one missed it.
+      onChange?.()
+      setTimeout(() => onChange?.(), 5000)
     } catch (e: any) {
       setOnboardError(`${r.fullName}: ${e?.message || 'failed'}`)
     } finally {

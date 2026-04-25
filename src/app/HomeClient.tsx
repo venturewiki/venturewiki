@@ -1,12 +1,12 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { Plus, Zap, Globe, Bot, TrendingUp, ArrowRight, Filter } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
 import BusinessCard, { BusinessCardSkeleton } from '@/components/business/BusinessCard'
 import MyGitHubPanel from '@/components/home/MyGitHubPanel'
-import { subscribeBusinesses } from '@/lib/api'
+import { fetchBusinesses } from '@/lib/api'
 import { STAGE_LABELS, TYPE_LABELS } from '@/lib/utils'
 import type { BusinessPlan, BusinessStage, ProductType } from '@/types'
 
@@ -22,13 +22,22 @@ export default function HomePage() {
   const [featuredOnly, setFeaturedOnly] = useState(false)
   const [search, setSearch]           = useState('')
 
-  useEffect(() => {
-    const unsub = subscribeBusinesses(data => {
+  const refreshBusinesses = useCallback(async () => {
+    try {
+      const data = await fetchBusinesses({ pageSize: 50 })
       setBusinesses(data)
+    } catch (err) {
+      console.error('Failed to fetch businesses', err)
+    } finally {
       setLoading(false)
-    })
-    return () => unsub()
+    }
   }, [])
+
+  useEffect(() => {
+    refreshBusinesses()
+    const interval = setInterval(refreshBusinesses, 120_000)
+    return () => clearInterval(interval)
+  }, [refreshBusinesses])
 
   const filtered = businesses.filter(b => {
     if (featuredOnly && !b.isFeatured) return false
@@ -203,7 +212,7 @@ export default function HomePage() {
       </section>
 
       {/* ── Your GitHub (signed-in only) ─────────────────────────────────── */}
-      {session && <MyGitHubPanel />}
+      {session && <MyGitHubPanel onChange={refreshBusinesses} />}
     </div>
   )
 }
