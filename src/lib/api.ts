@@ -267,6 +267,47 @@ export async function createVentureFile(slug: string, name: string, content: str
   return data.name
 }
 
+// ── My GitHub (orgs + repos for the logged-in user) ─────────────────────────
+
+export interface MyOrg { login: string; id: number; avatarUrl: string; description: string }
+export interface MyRepo {
+  fullName: string
+  owner: string
+  name: string
+  description: string
+  visibility: 'public' | 'private'
+  isFork: boolean
+  htmlUrl: string
+  pushedAt: string
+  hasVentureWiki: boolean
+  hasTopic: boolean
+}
+
+export async function fetchMyOrgs(): Promise<MyOrg[]> {
+  const res = await fetch('/api/me/orgs')
+  if (!res.ok) return []
+  return res.json()
+}
+
+export async function fetchMyRepos(): Promise<MyRepo[]> {
+  const res = await fetch('/api/me/repos')
+  if (!res.ok) return []
+  return res.json()
+}
+
+export async function onboardRepoToVentureWiki(owner: string, name: string): Promise<{ ok: boolean; editUrl: string; repoUrl: string }> {
+  const res = await fetch('/api/me/repos/onboard', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ owner, name }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Failed to onboard repo' }))
+    throw new Error(err.error)
+  }
+  return res.json()
+}
+
 // ── Stripe Subscription ──────────────────────────────────────────────────────
 
 export async function createCheckoutSession(plan: 'monthly' | 'yearly'): Promise<string> {

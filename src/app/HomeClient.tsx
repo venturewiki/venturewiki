@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { Plus, Zap, Globe, Bot, TrendingUp, ArrowRight, Filter } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
 import BusinessCard, { BusinessCardSkeleton } from '@/components/business/BusinessCard'
+import MyGitHubPanel from '@/components/home/MyGitHubPanel'
 import { subscribeBusinesses } from '@/lib/api'
 import { STAGE_LABELS, TYPE_LABELS } from '@/lib/utils'
 import type { BusinessPlan, BusinessStage, ProductType } from '@/types'
@@ -108,6 +109,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ── Your GitHub (signed-in only) ─────────────────────────────────── */}
+      {session && <MyGitHubPanel />}
 
       {/* ── Featured ──────────────────────────────────────────────────────── */}
       {featured.length > 0 && (
