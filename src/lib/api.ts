@@ -289,9 +289,16 @@ export async function fetchMyOrgs(): Promise<MyOrg[]> {
   return res.json()
 }
 
-export async function fetchMyRepos(): Promise<MyRepo[]> {
+export interface MyReposResponse {
+  scopes: string[]
+  missingScopes: string[]
+  truncated: boolean
+  repos: MyRepo[]
+}
+
+export async function fetchMyRepos(): Promise<MyReposResponse> {
   const res = await fetch('/api/me/repos')
-  if (!res.ok) return []
+  if (!res.ok) return { scopes: [], missingScopes: [], truncated: false, repos: [] }
   return res.json()
 }
 

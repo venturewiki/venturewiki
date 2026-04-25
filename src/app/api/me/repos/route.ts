@@ -6,7 +6,7 @@ import { getUserOctokit } from '@/lib/github'
 export const dynamic = 'force-dynamic'
 
 export interface MyRepo {
-  fullName: string         // owner/name
+  fullName: string
   owner: string
   name: string
   description: string
@@ -15,10 +15,18 @@ export interface MyRepo {
   htmlUrl: string
   pushedAt: string
   hasVentureWiki: boolean
-  hasTopic: boolean        // has the "venturewiki" topic
+  hasTopic: boolean
 }
 
-const HARD_LIMIT_REPOS = 200 // cap for safety on first scan
+export interface MyReposResponse {
+  scopes: string[]              // granted OAuth scopes
+  missingScopes: string[]       // scopes we need but the token lacks
+  truncated: boolean            // true if we hit the safety cap
+  repos: MyRepo[]
+}
+
+const REQUIRED_SCOPES = ['repo', 'read:org']
+const HARD_LIMIT_REPOS = 1000
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -29,25 +37,31 @@ export async function GET() {
   try {
     const octokit = getUserOctokit(session.accessToken)
 
-    // Pull up to HARD_LIMIT_REPOS user-affiliated repos (owner + collaborator + org member)
-    const repos: any[] = []
-    let page = 1
-    while (repos.length < HARD_LIMIT_REPOS) {
-      const { data } = await octokit.rest.repos.listForAuthenticatedUser({
-        per_page: 100,
-        page,
-        sort: 'pushed',
-        affiliation: 'owner,collaborator,organization_member',
-        visibility: 'all',
-      })
-      repos.push(...data)
-      if (data.length < 100) break
-      page++
-    }
+    // Detect granted scopes from the X-OAuth-Scopes header on a tiny call
+    const me = await octokit.rest.users.getAuthenticated()
+    const grantedHeader = (me.headers['x-oauth-scopes'] as string | undefined) || ''
+    const scopes = grantedHeader.split(',').map(s => s.trim()).filter(Boolean)
+    const grantedSet = new Set(scopes)
+    const missingScopes = REQUIRED_SCOPES.filter(s => {
+      // 'repo' implies 'public_repo'; 'admin:org' or 'write:org' imply 'read:org'.
+      if (s === 'repo') return !grantedSet.has('repo')
+      if (s === 'read:org') return !grantedSet.has('read:org') && !grantedSet.has('admin:org') && !grantedSet.has('write:org')
+      return !grantedSet.has(s)
+    })
 
-    // Probe each repo for `.venturewiki` folder + topic. Run in parallel with concurrency cap.
+    // Paginate all affiliated repos
+    const all = await octokit.paginate(octokit.rest.repos.listForAuthenticatedUser, {
+      per_page: 100,
+      sort: 'pushed',
+      affiliation: 'owner,collaborator,organization_member',
+      visibility: 'all',
+    })
+    const truncated = all.length > HARD_LIMIT_REPOS
+    const repos = all.slice(0, HARD_LIMIT_REPOS)
+
+    // Probe `.venturewiki` per repo with bounded concurrency
     const results: MyRepo[] = []
-    const concurrency = 8
+    const concurrency = 10
     let cursor = 0
     const worker = async () => {
       while (cursor < repos.length) {
@@ -76,13 +90,13 @@ export async function GET() {
     }
     await Promise.all(Array.from({ length: concurrency }, worker))
 
-    // Sort: onboarded first, then most recently pushed
     results.sort((a, b) => {
       if (a.hasVentureWiki !== b.hasVentureWiki) return a.hasVentureWiki ? -1 : 1
       return (b.pushedAt || '').localeCompare(a.pushedAt || '')
     })
 
-    return NextResponse.json(results)
+    const payload: MyReposResponse = { scopes, missingScopes, truncated, repos: results }
+    return NextResponse.json(payload)
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Failed to list repos' }, { status: 500 })
   }
