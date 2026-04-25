@@ -1,4 +1,5 @@
 import yaml from 'js-yaml'
+import type { Octokit } from 'octokit'
 import { getPublicOctokit, getAdminOctokit, GITHUB_ORG } from './github'
 import { generatePagesWorkflow, enableGitHubPages } from './pages-template'
 import type { BusinessPlan, VWUser, EditRecord, Comment, AdminStats, BusinessStage, ProductType, RoleCandidate, Validation, InvestmentInterest, VentureValue } from '@/types'
@@ -155,23 +156,38 @@ function repoToPlan(repo: any, planData: any): BusinessPlan {
 
 // ── Business Plans ────────────────────────────────────────────────────────────
 
+export type CreateBusinessTarget =
+  | { type: 'user'; login: string }
+  | { type: 'org'; login: string }
+
 export async function createBusiness(
   data: Omit<BusinessPlan, 'id' | 'slug' | 'createdAt' | 'updatedAt' | 'viewCount' | 'editCount'>,
-  userId: string
-): Promise<string> {
+  userId: string,
+  target: CreateBusinessTarget,
+  viewerOctokit: Octokit,
+): Promise<{ slug: string; owner: string }> {
   const slug = slugify(data.cover.companyName) + '-' + Date.now().toString(36)
-  const octokit = getAdminOctokit()
+  const owner = target.login
+  const isPublic = data.isPublic !== false
 
-  const isPublic = data.isPublic !== false // default to public if not specified
-
-  await octokit.rest.repos.createInOrg({
-    org: GITHUB_ORG,
-    name: slug,
-    description: `${data.cover.logoEmoji || '🚀'} ${data.cover.companyName} — ${data.cover.tagline}`,
-    visibility: isPublic ? 'public' : 'private',
-    has_issues: true,
-    auto_init: false,
-  })
+  if (target.type === 'org') {
+    await viewerOctokit.rest.repos.createInOrg({
+      org: target.login,
+      name: slug,
+      description: `${data.cover.logoEmoji || '🚀'} ${data.cover.companyName} — ${data.cover.tagline}`,
+      visibility: isPublic ? 'public' : 'private',
+      has_issues: true,
+      auto_init: false,
+    })
+  } else {
+    await viewerOctokit.rest.repos.createForAuthenticatedUser({
+      name: slug,
+      description: `${data.cover.logoEmoji || '🚀'} ${data.cover.companyName} — ${data.cover.tagline}`,
+      private: !isPublic,
+      has_issues: true,
+      auto_init: false,
+    })
+  }
 
   const plan: any = {
     ...data,
@@ -188,37 +204,45 @@ export async function createBusiness(
     updatedAt: new Date().toISOString(),
   }
 
-  await writePlanYaml(slug, plan, `✨ Create business plan: ${data.cover.companyName}`)
+  await viewerOctokit.rest.repos.createOrUpdateFileContents({
+    owner,
+    repo: slug,
+    path: '.venturewiki/plan.yaml',
+    message: `✨ Create business plan: ${data.cover.companyName}`,
+    content: encodeContent(yaml.dump(plan, { lineWidth: -1 })),
+  })
 
-  await octokit.rest.repos.createOrUpdateFileContents({
-    owner: GITHUB_ORG,
+  await viewerOctokit.rest.repos.createOrUpdateFileContents({
+    owner,
     repo: slug,
     path: 'README.md',
     message: 'Add README',
     content: encodeContent(generateReadme(plan as BusinessPlan)),
   })
 
-  // Add GitHub Actions workflow for GitHub Pages
-  await octokit.rest.repos.createOrUpdateFileContents({
-    owner: GITHUB_ORG,
-    repo: slug,
-    path: '.github/workflows/pages.yml',
-    message: '🌐 Add GitHub Pages workflow',
-    content: encodeContent(generatePagesWorkflow()),
-  })
-
-  // Enable GitHub Pages (source: GitHub Actions)
-  await enableGitHubPages(octokit, GITHUB_ORG, slug)
+  // GitHub Pages workflow + enable Pages — best-effort. May fail on personal
+  // free accounts for private repos; we don't want that to block creation.
+  try {
+    await viewerOctokit.rest.repos.createOrUpdateFileContents({
+      owner,
+      repo: slug,
+      path: '.github/workflows/pages.yml',
+      message: '🌐 Add GitHub Pages workflow',
+      content: encodeContent(generatePagesWorkflow()),
+    })
+    await enableGitHubPages(viewerOctokit, owner, slug)
+  } catch { /* best-effort */ }
 
   try {
-    await octokit.rest.repos.replaceAllTopics({
-      owner: GITHUB_ORG,
+    await viewerOctokit.rest.repos.replaceAllTopics({
+      owner,
       repo: slug,
       names: planToTopics(plan as BusinessPlan),
     })
   } catch {}
 
-  return slug
+  invalidateCache(`plan:${slug}`)
+  return { slug, owner }
 }
 
 export async function getBusiness(id: string): Promise<BusinessPlan | null> {

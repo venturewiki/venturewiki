@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { Save, Plus, Trash2, ArrowLeft, ChevronDown, ChevronUp, Sparkles, Loader2, Crown } from 'lucide-react'
 import yaml from 'js-yaml'
 import Navbar from '@/components/layout/Navbar'
-import { fetchBusiness, createBusiness, updateBusiness, generateVenturePlanAI, createCheckoutSession } from '@/lib/api'
+import { fetchBusiness, createBusiness, updateBusiness, generateVenturePlanAI, createCheckoutSession, fetchMyOrgs, type CreateBusinessTarget } from '@/lib/api'
 import { EMPTY_BUSINESS, cn } from '@/lib/utils'
 import type { BusinessPlan } from '@/types'
 
@@ -78,6 +78,8 @@ export default function BusinessEditorPage() {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({ cover: true })
   const [aiPrompt, setAiPrompt]     = useState('')
   const [aiGenerating, setAiGenerating] = useState(false)
+  const [ownerOptions, setOwnerOptions] = useState<Array<{ key: string; label: string; target: CreateBusinessTarget }>>([])
+  const [ownerKey, setOwnerKey] = useState<string>('')
 
   const { register, control, handleSubmit, reset, formState: { errors } } = useForm<any>({
     defaultValues: EMPTY_BUSINESS,
@@ -105,6 +107,26 @@ export default function BusinessEditorPage() {
   useEffect(() => {
     if (session === null) router.push('/api/auth/signin')
   }, [session, router])
+
+  // Load possible target owners (personal account + each org the user belongs to)
+  useEffect(() => {
+    if (!isNew || !session?.user?.login) return
+    const personal = {
+      key: `user:${session.user.login}`,
+      label: `Personal · @${session.user.login}`,
+      target: { type: 'user' as const, login: session.user.login },
+    }
+    setOwnerOptions([personal])
+    setOwnerKey(personal.key)
+    fetchMyOrgs().then(orgs => {
+      const orgOpts = orgs.map(o => ({
+        key: `org:${o.login}`,
+        label: `Org · ${o.login}`,
+        target: { type: 'org' as const, login: o.login },
+      }))
+      setOwnerOptions([personal, ...orgOpts])
+    }).catch(() => {})
+  }, [isNew, session?.user?.login])
 
   const toggle = (id: string) => setOpenSections(p => ({ ...p, [id]: !p[id] }))
 
@@ -154,11 +176,21 @@ export default function BusinessEditorPage() {
       // Convert radio string to boolean
       data.isPublic = data.isPublic === 'true' || data.isPublic === true
       if (isNew) {
-        const slug = await createBusiness(
-          { ...data, createdBy: session.user.id }
+        const target = ownerOptions.find(o => o.key === ownerKey)?.target
+        const { slug, owner } = await createBusiness(
+          { ...data, createdBy: session.user.id },
+          target,
         )
         toast.success('Business plan created!')
-        router.push(`/business/${slug}`)
+        // /business/[slug] currently only resolves repos in the venturewiki org.
+        // If the user picked a different owner, route them to GitHub directly so
+        // they can immediately see the new repo & plan.yaml.
+        if (owner === 'venturewiki') {
+          router.push(`/business/${slug}`)
+        } else {
+          window.open(`https://github.com/${owner}/${slug}/blob/main/.venturewiki/plan.yaml`, '_blank', 'noopener,noreferrer')
+          router.push('/')
+        }
       } else {
         const existing = await fetchBusiness(params.slug as string)
         if (existing) {
@@ -167,8 +199,8 @@ export default function BusinessEditorPage() {
           router.push(`/business/${existing.slug}`)
         }
       }
-    } catch (e) {
-      toast.error('Failed to save. Check your connection.')
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to save. Check your connection.')
       console.error(e)
     } finally {
       setSaving(false)
@@ -210,6 +242,35 @@ export default function BusinessEditorPage() {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+
+          {/* ── Repo owner picker ─────────────────────────────────────── */}
+          {isNew && ownerOptions.length > 0 && (
+            <div className="section-card">
+              <div className="flex items-center gap-2 mb-3">
+                <h2 className="font-display font-bold text-paper text-base">Where to create the GitHub repo</h2>
+              </div>
+              {ownerOptions.length === 1 ? (
+                <p className="text-muted text-sm">
+                  Will be created under <span className="text-paper font-mono">{ownerOptions[0].label}</span>.
+                </p>
+              ) : (
+                <>
+                  <p className="text-muted text-sm mb-3">
+                    Choose where to create the new repository. The repo and its <code className="font-mono">.venturewiki/plan.yaml</code> will live there.
+                  </p>
+                  <select
+                    value={ownerKey}
+                    onChange={e => setOwnerKey(e.target.value)}
+                    className="input-base"
+                  >
+                    {ownerOptions.map(o => (
+                      <option key={o.key} value={o.key}>{o.label}</option>
+                    ))}
+                  </select>
+                </>
+              )}
+            </div>
+          )}
 
           {/* ── AI Venture Generator (Pro feature) ────────────────────── */}
           {isNew && (

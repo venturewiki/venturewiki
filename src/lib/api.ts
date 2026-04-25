@@ -54,20 +54,24 @@ export async function fetchBusiness(slug: string): Promise<BusinessPlan | null> 
   return res.json()
 }
 
+export type CreateBusinessTarget =
+  | { type: 'user'; login: string }
+  | { type: 'org'; login: string }
+
 export async function createBusiness(
-  data: Omit<BusinessPlan, 'id' | 'slug' | 'createdAt' | 'updatedAt' | 'viewCount' | 'editCount'>
-): Promise<string> {
+  data: Omit<BusinessPlan, 'id' | 'slug' | 'createdAt' | 'updatedAt' | 'viewCount' | 'editCount'>,
+  target?: CreateBusinessTarget,
+): Promise<{ slug: string; owner: string }> {
   const res = await fetch('/api/businesses', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+    body: JSON.stringify({ ...data, target }),
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Failed to create business' }))
     throw new Error(err.error)
   }
-  const { slug } = await res.json()
-  return slug
+  return res.json()
 }
 
 export async function updateBusiness(
