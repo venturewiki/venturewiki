@@ -207,6 +207,25 @@ export default function BusinessPage() {
                       </button>
                     )
                   })}
+                  {files.map(f => {
+                    const isActive = activeFile === f.path
+                    return (
+                      <button
+                        key={f.path}
+                        onClick={() => selectFile(f.path)}
+                        className={cn(
+                          'w-full flex items-center gap-2 px-4 py-2 text-sm text-left transition-colors',
+                          isActive
+                            ? 'bg-accent/15 text-accent border-l-2 border-accent font-medium'
+                            : 'text-paper/70 hover:bg-rule/30 hover:text-paper border-l-2 border-transparent'
+                        )}
+                        title={f.name}
+                      >
+                        <FileText className="w-4 h-4 shrink-0" />
+                        <span className="truncate font-mono text-xs">{f.name}</span>
+                      </button>
+                    )
+                  })}
                   {canEdit && (
                     <button
                       onClick={openAddFile}
@@ -218,33 +237,6 @@ export default function BusinessPage() {
                   )}
                 </nav>
               </div>
-
-              {files.length > 0 && (
-                <div className="infobox">
-                  <div className="infobox-header">Files</div>
-                  <nav className="py-2">
-                    {files.map(f => {
-                      const isActive = activeFile === f.path
-                      return (
-                        <button
-                          key={f.path}
-                          onClick={() => selectFile(f.path)}
-                          className={cn(
-                            'w-full flex items-center gap-2 px-4 py-2 text-sm text-left transition-colors',
-                            isActive
-                              ? 'bg-accent/15 text-accent border-l-2 border-accent font-medium'
-                              : 'text-paper/70 hover:bg-rule/30 hover:text-paper border-l-2 border-transparent'
-                          )}
-                          title={f.name}
-                        >
-                          <FileText className="w-4 h-4 shrink-0" />
-                          <span className="truncate font-mono text-xs">{f.name}</span>
-                        </button>
-                      )
-                    })}
-                  </nav>
-                </div>
-              )}
             </div>
           </aside>
 
