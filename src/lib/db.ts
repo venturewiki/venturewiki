@@ -825,3 +825,72 @@ export async function getVentureValue(slug: string): Promise<VentureValue> {
     overallScore,
   }
 }
+
+// ── .venturewiki folder file browser ─────────────────────────────────────────
+// System files surfaced via dedicated tabs/APIs — excluded from the generic file list.
+const VW_SYSTEM_FILES = new Set([
+  'plan.yaml',
+  'candidates.yaml',
+  'validations.yaml',
+  'investments.yaml',
+  'value.yaml',
+])
+
+export interface VentureFile {
+  path: string   // path relative to .venturewiki/
+  name: string   // file basename
+  size: number
+}
+
+export async function listVentureFiles(slug: string): Promise<VentureFile[]> {
+  const cacheKey = `vwfiles:${slug}`
+  const cached = getCached<VentureFile[]>(cacheKey)
+  if (cached) return cached
+
+  try {
+    const octokit = getPublicOctokit()
+    const { data } = await octokit.rest.repos.getContent({
+      owner: GITHUB_ORG,
+      repo: slug,
+      path: '.venturewiki',
+    })
+    if (!Array.isArray(data)) return []
+    const files = data
+      .filter(item => item.type === 'file' && !VW_SYSTEM_FILES.has(item.name))
+      .map(item => ({ path: item.name, name: item.name, size: item.size || 0 }))
+    setCache(cacheKey, files)
+    return files
+  } catch {
+    return []
+  }
+}
+
+export async function readVentureFile(
+  slug: string,
+  filePath: string,
+): Promise<{ name: string; content: string } | null> {
+  // Reject traversal / system files; only allow simple names within .venturewiki/
+  if (filePath.includes('..') || filePath.includes('/') || filePath.includes('\\')) return null
+  if (VW_SYSTEM_FILES.has(filePath)) return null
+
+  const cacheKey = `vwfile:${slug}:${filePath}`
+  const cached = getCached<{ name: string; content: string }>(cacheKey)
+  if (cached) return cached
+
+  try {
+    const octokit = getPublicOctokit()
+    const { data } = await octokit.rest.repos.getContent({
+      owner: GITHUB_ORG,
+      repo: slug,
+      path: `.venturewiki/${filePath}`,
+    })
+    if ('content' in data && data.type === 'file') {
+      const result = { name: data.name, content: decodeContent(data.content) }
+      setCache(cacheKey, result)
+      return result
+    }
+    return null
+  } catch {
+    return null
+  }
+}

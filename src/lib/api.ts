@@ -236,6 +236,23 @@ export async function fetchVentureValue(slug: string): Promise<VentureValue> {
   return res.json()
 }
 
+// ── .venturewiki Files ───────────────────────────────────────────────────────
+
+export interface VentureFile { path: string; name: string; size: number }
+
+export async function fetchVentureFiles(slug: string): Promise<VentureFile[]> {
+  const res = await fetch(`/api/businesses/${encodeURIComponent(slug)}/files`)
+  if (!res.ok) return []
+  return res.json()
+}
+
+export async function fetchVentureFile(slug: string, path: string): Promise<{ name: string; content: string } | null> {
+  const res = await fetch(`/api/businesses/${encodeURIComponent(slug)}/files/${path.split('/').map(encodeURIComponent).join('/')}`)
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error('Failed to fetch file')
+  return res.json()
+}
+
 // ── Stripe Subscription ──────────────────────────────────────────────────────
 
 export async function createCheckoutSession(plan: 'monthly' | 'yearly'): Promise<string> {

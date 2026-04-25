@@ -4,16 +4,24 @@ import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import Image from 'next/image'
+import dynamic from 'next/dynamic'
 import {
   Eye, GitBranch, Clock, Edit3, Star, Archive, ArrowLeft,
   Globe, Cpu, DollarSign, Users, Target, Map, MessageSquare,
   ChevronRight, AlertTriangle, TrendingUp, Zap, UserPlus,
-  ShieldCheck, HandCoins, BarChart3
+  ShieldCheck, HandCoins, BarChart3, FileText
 } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
-import { fetchBusiness, incrementViewCount, toggleFeatured, fetchEditHistory, fetchComments, postComment, fetchCandidates, fetchValidations, fetchInvestments, fetchVentureValue } from '@/lib/api'
+import { fetchBusiness, incrementViewCount, toggleFeatured, fetchEditHistory, fetchComments, postComment, fetchCandidates, fetchValidations, fetchInvestments, fetchVentureValue, fetchVentureFiles, fetchVentureFile, type VentureFile } from '@/lib/api'
 import { cn, STAGE_LABELS, STAGE_COLORS, TYPE_ICONS, TYPE_LABELS, formatRelativeTime, formatNumber } from '@/lib/utils'
 import type { BusinessPlan, EditRecord, Comment, RoleCandidate, Validation, InvestmentInterest, VentureValue } from '@/types'
+
+const ReactMarkdown = dynamic(() => import('react-markdown'), { ssr: false })
+
+function fileExt(name: string) {
+  const i = name.lastIndexOf('.')
+  return i >= 0 ? name.slice(i + 1).toLowerCase() : ''
+}
 
 export default function BusinessPage() {
   const { slug }            = useParams<{ slug: string }>()
@@ -29,6 +37,10 @@ export default function BusinessPage() {
   const [newComment, setNewComment] = useState('')
   const [activeTab, setActiveTab]   = useState('overview')
   const [loading, setLoading]       = useState(true)
+  const [files, setFiles]           = useState<VentureFile[]>([])
+  const [activeFile, setActiveFile] = useState<string | null>(null)
+  const [fileContent, setFileContent] = useState<{ name: string; content: string } | null>(null)
+  const [fileLoading, setFileLoading] = useState(false)
 
   useEffect(() => {
     if (!slug) return
@@ -43,9 +55,22 @@ export default function BusinessPage() {
         fetchValidations(b.id).then(setValidations)
         fetchInvestments(b.id).then(setInvestments)
         fetchVentureValue(b.id).then(setVentureValue).catch(() => {})
+        fetchVentureFiles(b.id).then(setFiles).catch(() => {})
       }
     })
   }, [slug])
+
+  useEffect(() => {
+    if (!business || !activeFile) { setFileContent(null); return }
+    setFileLoading(true)
+    fetchVentureFile(business.id, activeFile)
+      .then(setFileContent)
+      .catch(() => setFileContent(null))
+      .finally(() => setFileLoading(false))
+  }, [business, activeFile])
+
+  const selectTab = (id: string) => { setActiveTab(id); setActiveFile(null) }
+  const selectFile = (path: string) => { setActiveFile(path) }
 
   const handleComment = async () => {
     if (!newComment.trim() || !session || !business) return
@@ -58,7 +83,8 @@ export default function BusinessPage() {
     <div className="min-h-screen bg-ink">
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr_300px] gap-6">
+          <div className="h-96 shimmer rounded-xl" />
           <div className="space-y-4">
             {[80, 400, 300, 250].map((h, i) => (
               <div key={i} className={`h-${h > 100 ? '48' : '10'} shimmer rounded-xl`} />
@@ -116,7 +142,63 @@ export default function BusinessPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr_300px] gap-6">
+
+          {/* ── Left navigation: sections + files ──────────────────────── */}
+          <aside className="lg:block">
+            <div className="sticky top-20 space-y-4">
+              <div className="infobox">
+                <div className="infobox-header">Sections</div>
+                <nav className="py-2">
+                  {TABS.map(tab => {
+                    const isActive = !activeFile && activeTab === tab.id
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => selectTab(tab.id)}
+                        className={cn(
+                          'w-full flex items-center gap-2 px-4 py-2 text-sm text-left transition-colors',
+                          isActive
+                            ? 'bg-accent/15 text-accent border-l-2 border-accent font-medium'
+                            : 'text-paper/70 hover:bg-rule/30 hover:text-paper border-l-2 border-transparent'
+                        )}
+                      >
+                        <tab.icon className="w-4 h-4 shrink-0" />
+                        <span className="truncate">{tab.label}</span>
+                      </button>
+                    )
+                  })}
+                </nav>
+              </div>
+
+              {files.length > 0 && (
+                <div className="infobox">
+                  <div className="infobox-header">Files</div>
+                  <nav className="py-2">
+                    {files.map(f => {
+                      const isActive = activeFile === f.path
+                      return (
+                        <button
+                          key={f.path}
+                          onClick={() => selectFile(f.path)}
+                          className={cn(
+                            'w-full flex items-center gap-2 px-4 py-2 text-sm text-left transition-colors',
+                            isActive
+                              ? 'bg-accent/15 text-accent border-l-2 border-accent font-medium'
+                              : 'text-paper/70 hover:bg-rule/30 hover:text-paper border-l-2 border-transparent'
+                          )}
+                          title={f.name}
+                        >
+                          <FileText className="w-4 h-4 shrink-0" />
+                          <span className="truncate font-mono text-xs">{f.name}</span>
+                        </button>
+                      )
+                    })}
+                  </nav>
+                </div>
+              )}
+            </div>
+          </aside>
 
           {/* ── Main column ────────────────────────────────────────────── */}
           <main className="min-w-0">
@@ -184,27 +266,33 @@ export default function BusinessPage() {
               <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />{business.contributors?.length || 1} contributor{(business.contributors?.length || 1) > 1 ? 's' : ''}</span>
             </div>
 
-            {/* Tab nav */}
-            <div className="flex gap-0.5 mb-6 bg-lead border border-rule rounded-lg p-1 overflow-x-auto">
-              {TABS.map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all',
-                    activeTab === tab.id
-                      ? 'bg-accent text-white shadow-sm'
-                      : 'text-muted hover:text-paper'
-                  )}
-                >
-                  <tab.icon className="w-3.5 h-3.5" />
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+            {/* ── File viewer ────────────────────────────────────────── */}
+            {activeFile && (
+              <div className="section-card animate-fade-in">
+                <div className="flex items-center gap-2 mb-4">
+                  <FileText className="w-4 h-4 text-accent shrink-0" />
+                  <h2 className="font-display font-bold text-paper truncate">
+                    {fileContent?.name || activeFile}
+                  </h2>
+                </div>
+                {fileLoading ? (
+                  <div className="h-32 shimmer rounded-lg" />
+                ) : !fileContent ? (
+                  <p className="text-muted italic text-sm">File not available.</p>
+                ) : ['md', 'markdown'].includes(fileExt(fileContent.name)) ? (
+                  <div className="prose prose-invert prose-sm max-w-none">
+                    <ReactMarkdown>{fileContent.content}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <pre className="bg-rule/30 border border-rule rounded-lg p-4 text-xs text-paper/90 font-mono overflow-x-auto whitespace-pre-wrap break-words">
+                    {fileContent.content}
+                  </pre>
+                )}
+              </div>
+            )}
 
             {/* ── Tab: Overview ─────────────────────────────────────── */}
-            {activeTab === 'overview' && (
+            {!activeFile && activeTab === 'overview' && (
               <div className="space-y-6 animate-fade-in">
                 {/* Mission / Vision */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -310,7 +398,7 @@ export default function BusinessPage() {
             )}
 
             {/* ── Tab: Product & GTM ────────────────────────────────── */}
-            {activeTab === 'product' && (
+            {!activeFile && activeTab === 'product' && (
               <div className="space-y-6 animate-fade-in">
                 <div className="section-card">
                   <h2 className="font-display font-bold text-paper mb-4 flex items-center gap-2">
@@ -403,7 +491,7 @@ export default function BusinessPage() {
             )}
 
             {/* ── Tab: Team & Roadmap ───────────────────────────────── */}
-            {activeTab === 'team' && (
+            {!activeFile && activeTab === 'team' && (
               <div className="space-y-6 animate-fade-in">
                 <div className="section-card">
                   <h2 className="font-display font-bold text-paper mb-4 flex items-center gap-2">
@@ -482,7 +570,7 @@ export default function BusinessPage() {
             )}
 
             {/* ── Tab: Financials ───────────────────────────────────── */}
-            {activeTab === 'financial' && (
+            {!activeFile && activeTab === 'financial' && (
               <div className="space-y-6 animate-fade-in">
                 <div className="section-card">
                   <h2 className="font-display font-bold text-paper mb-4 flex items-center gap-2">
@@ -584,7 +672,7 @@ export default function BusinessPage() {
             )}
 
             {/* ── Tab: Candidates ────────────────────────────────── */}
-            {activeTab === 'candidates' && (
+            {!activeFile && activeTab === 'candidates' && (
               <div className="space-y-4 animate-fade-in">
                 <div className="section-card">
                   <h2 className="font-display font-bold text-paper mb-4 flex items-center gap-2">
@@ -637,7 +725,7 @@ export default function BusinessPage() {
             )}
 
             {/* ── Tab: Validations ──────────────────────────────────── */}
-            {activeTab === 'validations' && (
+            {!activeFile && activeTab === 'validations' && (
               <div className="space-y-4 animate-fade-in">
                 <div className="section-card">
                   <h2 className="font-display font-bold text-paper mb-4 flex items-center gap-2">
@@ -694,7 +782,7 @@ export default function BusinessPage() {
             )}
 
             {/* ── Tab: Investment ───────────────────────────────────── */}
-            {activeTab === 'invest' && (
+            {!activeFile && activeTab === 'invest' && (
               <div className="space-y-4 animate-fade-in">
                 <div className="section-card">
                   <h2 className="font-display font-bold text-paper mb-4 flex items-center gap-2">
@@ -740,7 +828,7 @@ export default function BusinessPage() {
             )}
 
             {/* ── Tab: History ──────────────────────────────────────── */}
-            {activeTab === 'history' && (
+            {!activeFile && activeTab === 'history' && (
               <div className="section-card animate-fade-in">
                 <h2 className="font-display font-bold text-paper mb-4 flex items-center gap-2">
                   <GitBranch className="w-4 h-4 text-accent" /> Edit History
@@ -765,7 +853,7 @@ export default function BusinessPage() {
             )}
 
             {/* ── Tab: Discussion ───────────────────────────────────── */}
-            {activeTab === 'discuss' && (
+            {!activeFile && activeTab === 'discuss' && (
               <div className="space-y-4 animate-fade-in">
                 {session ? (
                   <div className="section-card">
