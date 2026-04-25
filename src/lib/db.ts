@@ -873,9 +873,10 @@ function validateVentureFilename(filePath: string): void {
   if (filePath.startsWith('.')) throw new Error('Filename cannot start with a dot')
   if (VW_SYSTEM_FILES.has(filePath)) throw new Error('That filename is reserved')
   if (filePath.length > 100) throw new Error('Filename is too long')
-  if (!/^[A-Za-z0-9._-]+$/.test(filePath)) {
-    throw new Error('Filename may only contain letters, numbers, dot, dash, underscore')
+  if (!/^[A-Za-z0-9 ._-]+$/.test(filePath)) {
+    throw new Error('Filename may only contain letters, numbers, spaces, dot, dash, underscore')
   }
+  if (filePath !== filePath.trim()) throw new Error('Filename cannot start or end with whitespace')
 }
 
 export async function createVentureFile(

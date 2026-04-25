@@ -1028,7 +1028,7 @@ export default function BusinessPage() {
 
             <p className="text-xs text-muted mb-4">
               Adds a file to <code className="bg-rule/40 px-1 rounded font-mono">.venturewiki/</code> in this venture&apos;s repository.
-              Letters, numbers, dot, dash, underscore only.
+              Letters, numbers, spaces, dot, dash, underscore only.
             </p>
 
             <label className="block text-xs uppercase tracking-wider text-muted mb-1 font-mono">Filename</label>
