@@ -41,26 +41,27 @@ function encodeContent(content: string): string {
 
 // Phase 2: ventures may live under any GitHub owner. resolveBusinessOwner maps
 // a slug → the owner login. Cached so we don't re-search GitHub on every call.
-export async function resolveBusinessOwner(slug: string): Promise<string | null> {
+export async function resolveBusinessOwner(
+  slug: string,
+  viewerOctokit?: Octokit,
+): Promise<string | null> {
   const cacheKey = `owner:${slug}`
   const cached = getCached<string | null>(cacheKey)
-  if (cached !== undefined) return cached
+  if (cached !== undefined && cached !== null) return cached
 
-  const octokit = getPublicOctokit()
+  const publicOctokit = getPublicOctokit()
 
   // Fast path: the venturewiki org. Covers all legacy ventures and the platform default.
   try {
-    await octokit.rest.repos.get({ owner: GITHUB_ORG, repo: slug })
+    await publicOctokit.rest.repos.get({ owner: GITHUB_ORG, repo: slug })
     setCache(cacheKey, GITHUB_ORG)
     return GITHUB_ORG
   } catch { /* fall through */ }
 
-  // Public search: any repo on GitHub named `slug` carrying the `venturewiki` topic.
-  // Note: this only finds public repos. Private cross-owner repos are intentionally
-  // not resolvable via this path — they can only be reached by their owner via the
-  // "Your GitHub" panel, which uses the viewer's OAuth token.
+  // Public search: any public repo on GitHub named `slug` carrying the
+  // `venturewiki` topic.
   try {
-    const { data } = await octokit.rest.search.repos({
+    const { data } = await publicOctokit.rest.search.repos({
       q: `${slug} in:name topic:venturewiki`,
       per_page: 5,
     })
@@ -72,34 +73,72 @@ export async function resolveBusinessOwner(slug: string): Promise<string | null>
     }
   } catch { /* ignore */ }
 
-  setCache(cacheKey, null as any)
+  // Viewer-token search: extends visibility to the signed-in user's private
+  // ventures (their own repos under any owner they have `repo` access to).
+  if (viewerOctokit) {
+    try {
+      const { data } = await viewerOctokit.rest.search.repos({
+        q: `${slug} in:name topic:venturewiki`,
+        per_page: 5,
+      })
+      const match = data.items.find(r => r.name === slug)
+      if (match) {
+        const owner = match.owner!.login
+        setCache(cacheKey, owner)
+        return owner
+      }
+    } catch { /* ignore */ }
+  }
+
+  // Don't cache misses — the next call may pass a viewer token that resolves it.
   return null
 }
 
-async function readPlanYaml(slug: string): Promise<{ data: any; sha: string; owner: string } | null> {
+async function readPlanYaml(
+  slug: string,
+  viewerOctokit?: Octokit,
+): Promise<{ data: any; sha: string; owner: string } | null> {
   const cacheKey = `plan:${slug}`
   const cached = getCached<{ data: any; sha: string; owner: string }>(cacheKey)
   if (cached) return cached
 
-  const owner = await resolveBusinessOwner(slug)
+  const owner = await resolveBusinessOwner(slug, viewerOctokit)
   if (!owner) return null
 
-  try {
-    const octokit = getPublicOctokit()
+  // Try the public/admin token first (covers public repos and venturewiki-org
+  // private repos). Fall back to the viewer's OAuth token if we can't read it
+  // — that path is what unlocks private cross-owner ventures for their owner.
+  const tryRead = async (octokit: Octokit) => {
     const { data } = await octokit.rest.repos.getContent({
       owner,
       repo: slug,
       path: '.venturewiki/plan.yaml',
     })
     if ('content' in data && data.type === 'file') {
-      const result = { data: yaml.load(decodeContent(data.content)), sha: data.sha, owner }
+      return { data: yaml.load(decodeContent(data.content)), sha: data.sha, owner }
+    }
+    return null
+  }
+
+  try {
+    const result = await tryRead(getPublicOctokit())
+    if (result) {
       setCache(cacheKey, result)
       return result
     }
-    return null
-  } catch {
-    return null
+  } catch { /* fall through to viewer token */ }
+
+  if (viewerOctokit) {
+    try {
+      const result = await tryRead(viewerOctokit)
+      if (result) {
+        setCache(cacheKey, result)
+        return result
+      }
+    } catch { /* not visible to viewer either */ }
   }
+
+  return null
 }
 
 // Picks the right Octokit for a write. The platform admin token can write
@@ -298,17 +337,34 @@ export async function createBusiness(
   return { slug, owner }
 }
 
-export async function getBusiness(id: string): Promise<BusinessPlan | null> {
-  return getBusinessBySlug(id)
+export async function getBusiness(id: string, viewerOctokit?: Octokit): Promise<BusinessPlan | null> {
+  return getBusinessBySlug(id, viewerOctokit)
 }
 
-export async function getBusinessBySlug(slug: string): Promise<BusinessPlan | null> {
+export async function getBusinessBySlug(
+  slug: string,
+  viewerOctokit?: Octokit,
+): Promise<BusinessPlan | null> {
   try {
-    const owner = await resolveBusinessOwner(slug)
+    const owner = await resolveBusinessOwner(slug, viewerOctokit)
     if (!owner) return null
-    const octokit = getPublicOctokit()
-    const { data: repo } = await octokit.rest.repos.get({ owner, repo: slug })
-    const planResult = await readPlanYaml(slug)
+
+    // Try public/admin first, fall back to viewer's token for private cross-owner repos.
+    let repo: any = null
+    try {
+      const { data } = await getPublicOctokit().rest.repos.get({ owner, repo: slug })
+      repo = data
+    } catch {
+      if (viewerOctokit) {
+        try {
+          const { data } = await viewerOctokit.rest.repos.get({ owner, repo: slug })
+          repo = data
+        } catch { /* not visible */ }
+      }
+    }
+    if (!repo) return null
+
+    const planResult = await readPlanYaml(slug, viewerOctokit)
     if (!planResult) return null
     return repoToPlan(repo, planResult.data)
   } catch {
@@ -319,7 +375,7 @@ export async function getBusinessBySlug(slug: string): Promise<BusinessPlan | nu
 export async function updateBusiness(
   id: string, data: Partial<BusinessPlan>, userId: string, editSummary: string, viewerOctokit?: Octokit,
 ): Promise<void> {
-  const existing = await readPlanYaml(id)
+  const existing = await readPlanYaml(id, viewerOctokit)
   if (!existing) throw new Error('Business not found')
 
   const updated = {
@@ -370,8 +426,9 @@ export async function getBusinesses(opts: {
   type?: string
   search?: string
   featuredOnly?: boolean
+  viewerOctokit?: Octokit
 } = {}): Promise<{ businesses: BusinessPlan[]; lastDoc: null }> {
-  const octokit = getPublicOctokit()
+  const publicOctokit = getPublicOctokit()
 
   // Phase 2: ventures may live under any GitHub owner. Scope by topic, not org.
   let searchQuery = `topic:venturewiki`
@@ -381,18 +438,46 @@ export async function getBusinesses(opts: {
   if (opts.search) searchQuery += ` ${opts.search} in:name,description`
   searchQuery += ' archived:false'
 
-  const { data: searchResult } = await octokit.rest.search.repos({
-    q: searchQuery,
-    sort: 'updated',
-    order: 'desc',
-    per_page: opts.pageSize ?? 20,
-  })
+  // Run the search against both the public octokit (sees public repos) and
+  // — when signed in — the viewer's octokit (also sees their private repos
+  // under any owner they have access to). Results are merged and deduped by
+  // full repo path so private ventures like a user's own AI venture appear
+  // in the directory alongside public ones.
+  const searchPromises = [
+    publicOctokit.rest.search.repos({
+      q: searchQuery,
+      sort: 'updated',
+      order: 'desc',
+      per_page: opts.pageSize ?? 20,
+    }).then(r => r.data.items).catch(() => []),
+  ]
+  if (opts.viewerOctokit) {
+    searchPromises.push(
+      opts.viewerOctokit.rest.search.repos({
+        q: searchQuery,
+        sort: 'updated',
+        order: 'desc',
+        per_page: opts.pageSize ?? 20,
+      }).then(r => r.data.items).catch(() => []),
+    )
+  }
+  const itemsByOwner = await Promise.all(searchPromises)
+  const seen = new Set<string>()
+  const merged: any[] = []
+  for (const list of itemsByOwner) {
+    for (const repo of list) {
+      const key = `${repo.owner?.login}/${repo.name}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      merged.push(repo)
+    }
+  }
 
   const businesses = await Promise.all(
-    searchResult.items.map(async (repo) => {
+    merged.map(async (repo) => {
       // Prime owner cache so readPlanYaml doesn't re-search GitHub
       setCache(`owner:${repo.name}`, repo.owner!.login)
-      const planResult = await readPlanYaml(repo.name)
+      const planResult = await readPlanYaml(repo.name, opts.viewerOctokit)
       if (!planResult) return null
       return repoToPlan(repo, planResult.data)
     })

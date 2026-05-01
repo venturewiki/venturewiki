@@ -9,24 +9,27 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
+  const session = await getServerSession(authOptions)
+  const userId = session?.user?.id
+  const viewerOctokit = session?.accessToken ? getUserOctokit(session.accessToken) : undefined
+
   const opts = {
     pageSize: Number(searchParams.get('pageSize')) || 50,
     stage: searchParams.get('stage') || undefined,
     type: searchParams.get('type') || undefined,
     search: searchParams.get('search') || undefined,
     featuredOnly: searchParams.get('featuredOnly') === 'true',
+    viewerOctokit,
   }
 
   const { businesses } = await getBusinesses(opts)
 
-  // Privacy: filter out private repos unless user is creator/contributor
-  const session = await getServerSession(authOptions)
-  const userId = session?.user?.id
-
+  // Privacy: anonymous viewers only see public repos. Signed-in viewers see
+  // public repos plus any private repo that surfaced via their own GitHub
+  // token — by definition they have access to those.
   const visible = businesses.filter(b => {
     if (b.isPublic) return true
-    if (!userId) return false
-    return b.createdBy === userId || b.contributors?.includes(userId)
+    return !!userId
   })
 
   return NextResponse.json(visible)
