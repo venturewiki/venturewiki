@@ -42,6 +42,15 @@ export interface BusinessPlan {
   isArchived: boolean
   isFeatured: boolean
 
+  // ── Raw plan.yaml round-trip (only set on the single-business GET) ────────
+  // _planRaw is the verbatim file content as it lives in the repo. Used by
+  // the in-app YAML editors so users can hand-edit the file when it's
+  // malformed, or edit a single section as a YAML subtree.
+  // _planError is the js-yaml parse error message (if any). When present,
+  // the rest of the plan is a placeholder stub.
+  _planRaw?: string
+  _planError?: string
+
   // ── Page 1: Cover & Snapshot ─────────────────────────────────────────────
   cover: {
     companyName: string
