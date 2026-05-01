@@ -11,7 +11,7 @@
  *   npx tsx scripts/seed-venturewiki.ts
  */
 
-import { Octokit } from '@octokit/rest'
+import { Octokit } from 'octokit'
 import * as dotenv from 'dotenv'
 import * as path from 'path'
 import yaml from 'js-yaml'
@@ -39,13 +39,13 @@ async function upsertFile(repo: string, filePath: string, message: string, conte
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       // Try to get existing file (for update with sha)
-      const { data: existing } = await octokit.repos.getContent({
+      const { data: existing } = await octokit.rest.repos.getContent({
         owner: GITHUB_ORG,
         repo,
         path: filePath,
       })
       if ('sha' in existing) {
-        await octokit.repos.createOrUpdateFileContents({
+        await octokit.rest.repos.createOrUpdateFileContents({
           owner: GITHUB_ORG,
           repo,
           path: filePath,
@@ -58,7 +58,7 @@ async function upsertFile(repo: string, filePath: string, message: string, conte
     } catch {
       // File doesn't exist — create it
       try {
-        await octokit.repos.createOrUpdateFileContents({
+        await octokit.rest.repos.createOrUpdateFileContents({
           owner: GITHUB_ORG,
           repo,
           path: filePath,
@@ -256,7 +256,7 @@ async function enableGitHubPages(
   repo: string
 ): Promise<void> {
   try {
-    await ok.repos.createPagesSite({
+    await ok.rest.repos.createPagesSite({
       owner,
       repo,
       build_type: 'workflow',
@@ -545,7 +545,7 @@ async function seed() {
   // 1. Create the meta repo (.venturewiki) if it doesn't exist
   console.log('  Creating .venturewiki meta repo (users registry)...')
   try {
-    await octokit.repos.createInOrg({
+    await octokit.rest.repos.createInOrg({
       org: GITHUB_ORG,
       name: '.venturewiki',
       description: 'VentureWiki platform metadata (user registry)',
@@ -567,7 +567,7 @@ async function seed() {
   // 2. Create the venturewiki business plan repo
   console.log('  Creating venturewiki plan repo...')
   try {
-    await octokit.repos.createInOrg({
+    await octokit.rest.repos.createInOrg({
       org: GITHUB_ORG,
       name: SLUG,
       description: `${plan.cover.logoEmoji} ${plan.cover.companyName} — ${plan.cover.tagline}`,
@@ -609,7 +609,7 @@ async function seed() {
 
   // 7. Set topics
   console.log('  Setting topics...')
-  await octokit.repos.replaceAllTopics({
+  await octokit.rest.repos.replaceAllTopics({
     owner: GITHUB_ORG,
     repo: SLUG,
     names: [
@@ -627,7 +627,7 @@ async function seed() {
   // 8. Create discussion issue
   console.log('  Creating discussion issue...')
   try {
-    await octokit.issues.create({
+    await octokit.rest.issues.create({
       owner: GITHUB_ORG,
       repo: SLUG,
       title: 'Discussion — Leave your feedback',

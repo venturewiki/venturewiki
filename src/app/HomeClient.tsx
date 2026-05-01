@@ -23,14 +23,9 @@ export default function HomePage() {
   const [search, setSearch]           = useState('')
 
   const refreshBusinesses = useCallback(async () => {
-    try {
-      const data = await fetchBusinesses({ pageSize: 50 })
-      setBusinesses(data)
-    } catch (err) {
-      console.error('Failed to fetch businesses', err)
-    } finally {
-      setLoading(false)
-    }
+    try { setBusinesses(await fetchBusinesses({ pageSize: 50 })) }
+    catch (err) { console.error('Failed to fetch businesses', err) }
+    finally { setLoading(false) }
   }, [])
 
   useEffect(() => {
