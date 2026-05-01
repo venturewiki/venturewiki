@@ -115,7 +115,26 @@ async function readPlanYaml(
       path: '.venturewiki/plan.yaml',
     })
     if ('content' in data && data.type === 'file') {
-      return { data: yaml.load(decodeContent(data.content)), sha: data.sha, owner }
+      const text = decodeContent(data.content)
+      let parsed: any
+      try {
+        parsed = yaml.load(text)
+      } catch (err: any) {
+        // Don't drop the whole venture from listings just because the YAML is
+        // malformed — keep it visible with a clear "broken plan.yaml" marker
+        // so the owner can spot and fix it from the directory.
+        const msg = (err?.message || String(err)).split('\n')[0]
+        parsed = {
+          cover: {
+            companyName: slug,
+            tagline: `⚠ plan.yaml has a YAML error: ${msg}`.slice(0, 200),
+            stage: 'idea',
+            productType: 'other',
+          },
+          _planError: err?.message || String(err),
+        }
+      }
+      return { data: parsed, sha: data.sha, owner }
     }
     return null
   }
