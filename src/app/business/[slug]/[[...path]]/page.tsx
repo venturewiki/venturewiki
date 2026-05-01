@@ -15,10 +15,12 @@ import {
 import Navbar from '@/components/layout/Navbar'
 import { EditableSection } from '@/components/business/EditableSection'
 import { EditField, TextInput, Selector } from '@/components/business/edit-fields'
-import { DynamicSection, listDynamicSections } from '@/components/business/DynamicSection'
+import { listDynamicSections } from '@/components/business/DynamicSection'
+import { SectionYamlEditor } from '@/components/business/SectionYamlEditor'
+import { YamlEditor } from '@/components/business/YamlEditor'
 import MentionInput from '@/components/business/MentionInput'
 import InvitePersonModal from '@/components/business/InvitePersonModal'
-import { fetchBusiness, incrementViewCount, toggleFeatured, fetchEditHistory, fetchComments, postComment, fetchCandidates, fetchValidations, fetchInvestments, fetchVentureValue, fetchVentureFiles, fetchVentureFile, createVentureFile, updateBusiness, inviteCollaborator, applyForRole, type VentureFile, type GhUserHit } from '@/lib/api'
+import { fetchBusiness, incrementViewCount, toggleFeatured, fetchEditHistory, fetchComments, postComment, fetchCandidates, fetchValidations, fetchInvestments, fetchVentureValue, fetchVentureFiles, fetchVentureFile, createVentureFile, updateBusiness, updatePlanYaml, inviteCollaborator, applyForRole, type VentureFile, type GhUserHit } from '@/lib/api'
 import { cn, STAGE_LABELS, STAGE_COLORS, TYPE_ICONS, TYPE_LABELS, formatRelativeTime, formatNumber } from '@/lib/utils'
 import { categoryFromName } from '@/lib/mime'
 import type { BusinessPlan, EditRecord, Comment, RoleCandidate, Validation, InvestmentInterest, VentureValue } from '@/types'
@@ -88,6 +90,7 @@ export default function BusinessPage() {
   const [files, setFiles]           = useState<VentureFile[]>([])
   const [fileContent, setFileContent] = useState<{ name: string; content: string } | null>(null)
   const [fileLoading, setFileLoading] = useState(false)
+  const [savingRawYaml, setSavingRawYaml] = useState(false)
 
   // Plan-section tabs are derived from the live plan keys. A URL segment that
   // matches a known plan key OR a platform tab id is a tab; otherwise it is a
@@ -247,6 +250,8 @@ export default function BusinessPage() {
   const cover: BusinessPlan['cover'] = (business as any).cover || ({} as BusinessPlan['cover'])
   const tr = (business as any).teamRoadmap
   const fa = (business as any).fundingAsk
+  const planError: string | undefined = (business as any)._planError
+  const planRaw: string | undefined = (business as any)._planRaw
   const isAdmin  = session?.user.role === 'admin'
   const canEdit  = !!session
     ? (session.user.role === 'editor' || isAdmin)
@@ -572,6 +577,44 @@ export default function BusinessPage() {
               )
             })()}
 
+            {/* ── plan.yaml parse-error banner + raw editor ───────────────── */}
+            {!activeFile && planError && (
+              <div className="section-card mb-6 border border-rose-500/40 bg-rose-500/5 animate-fade-in">
+                <div className="flex items-start gap-3 mb-3">
+                  <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <h2 className="font-display font-bold text-paper text-base mb-1">
+                      .venturewiki/plan.yaml has a YAML error
+                    </h2>
+                    <p className="text-paper/70 text-sm font-mono break-words leading-relaxed">{planError}</p>
+                    <p className="text-muted text-xs mt-2">
+                      Edit the file below and save to fix it. Until the YAML parses cleanly, the structured sections
+                      below are placeholders.
+                    </p>
+                  </div>
+                </div>
+                {planRaw != null && (
+                  <YamlEditor
+                    initialValue={planRaw}
+                    requireParseOk
+                    rows={26}
+                    saving={savingRawYaml}
+                    saveLabel="Save plan.yaml"
+                    onSave={async (raw) => {
+                      setSavingRawYaml(true)
+                      try {
+                        await updatePlanYaml(business.id, raw, 'Fix plan.yaml via VentureWiki editor')
+                        const fresh = await fetchBusiness(business.id)
+                        if (fresh) setBusiness(fresh)
+                      } finally {
+                        setSavingRawYaml(false)
+                      }
+                    }}
+                  />
+                )}
+              </div>
+            )}
+
             {/* ── Dynamic plan sections (one tab per top-level key in plan.yaml) ── */}
             {!activeFile && sectionDescriptors.map(section => (
               activeTab === section.key && (
@@ -586,7 +629,13 @@ export default function BusinessPage() {
                         {section.key}
                       </span>
                     </div>
-                    <DynamicSection value={section.value} />
+                    <SectionYamlEditor
+                      value={section.value}
+                      canEdit={canEdit}
+                      onSave={async (next) => {
+                        await savePatch({ [section.key]: next } as any)
+                      }}
+                    />
                   </div>
                 </div>
               )

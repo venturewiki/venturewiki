@@ -88,6 +88,23 @@ export async function updateBusiness(
   }
 }
 
+// Write the verbatim plan.yaml content to the venture's repo. Used by the
+// in-app raw-YAML editor (when the file is malformed) and the per-section
+// subtree editor.
+export async function updatePlanYaml(
+  id: string, rawYaml: string, editSummary: string,
+): Promise<void> {
+  const res = await fetch(`/api/businesses/${encodeURIComponent(id)}/plan-yaml`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rawYaml, editSummary }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Failed to update plan.yaml' }))
+    throw new Error(err.error)
+  }
+}
+
 // ── Comments ──────────────────────────────────────────────────────────────────
 
 export async function fetchComments(slug: string): Promise<Comment[]> {

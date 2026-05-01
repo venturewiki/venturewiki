@@ -97,9 +97,9 @@ export async function resolveBusinessOwner(
 async function readPlanYaml(
   slug: string,
   viewerOctokit?: Octokit,
-): Promise<{ data: any; sha: string; owner: string } | null> {
+): Promise<{ data: any; sha: string; owner: string; raw: string } | null> {
   const cacheKey = `plan:${slug}`
-  const cached = getCached<{ data: any; sha: string; owner: string }>(cacheKey)
+  const cached = getCached<{ data: any; sha: string; owner: string; raw: string }>(cacheKey)
   if (cached) return cached
 
   const owner = await resolveBusinessOwner(slug, viewerOctokit)
@@ -122,7 +122,8 @@ async function readPlanYaml(
       } catch (err: any) {
         // Don't drop the whole venture from listings just because the YAML is
         // malformed — keep it visible with a clear "broken plan.yaml" marker
-        // so the owner can spot and fix it from the directory.
+        // so the owner can spot and fix it from the directory, and so the
+        // detail page can render a raw-YAML editor.
         const msg = (err?.message || String(err)).split('\n')[0]
         parsed = {
           cover: {
@@ -134,7 +135,7 @@ async function readPlanYaml(
           _planError: err?.message || String(err),
         }
       }
-      return { data: parsed, sha: data.sha, owner }
+      return { data: parsed, sha: data.sha, owner, raw: text }
     }
     return null
   }
@@ -182,6 +183,34 @@ async function writePlanYaml(
     path: '.venturewiki/plan.yaml',
     message,
     content: encodeContent(yaml.dump(plan, { lineWidth: -1 })),
+    ...(existingSha ? { sha: existingSha } : {}),
+  })
+  invalidateCache(`plan:${slug}`)
+}
+
+// Write a raw plan.yaml string verbatim. Used by the in-app raw-YAML editor
+// when the file is malformed (so the user can hand-fix it) and by the
+// per-section subtree editor's underlying flow if it ever bypasses parsing.
+export async function writeRawPlanYaml(
+  slug: string, rawYaml: string, message: string, viewerOctokit?: Octokit,
+): Promise<void> {
+  const owner = await resolveBusinessOwner(slug, viewerOctokit)
+  if (!owner) throw new Error('Business not found')
+  const octokit = pickWriteOctokit(owner, viewerOctokit)
+  // Pull the existing sha so PUT replaces (not creates) the file.
+  let existingSha: string | undefined
+  try {
+    const { data } = await getRepoContent(octokit, {
+      owner, repo: slug, path: '.venturewiki/plan.yaml',
+    })
+    if ('sha' in (data as any)) existingSha = (data as any).sha
+  } catch { /* file may not exist */ }
+  await putRepoContent(octokit, {
+    owner,
+    repo: slug,
+    path: '.venturewiki/plan.yaml',
+    message,
+    content: encodeContent(rawYaml),
     ...(existingSha ? { sha: existingSha } : {}),
   })
   invalidateCache(`plan:${slug}`)
@@ -385,7 +414,12 @@ export async function getBusinessBySlug(
 
     const planResult = await readPlanYaml(slug, viewerOctokit)
     if (!planResult) return null
-    return repoToPlan(repo, planResult.data)
+    const business = repoToPlan(repo, planResult.data) as BusinessPlan & { _planRaw?: string }
+    // The detail page renders an inline raw-YAML editor and per-section
+    // subtree editors, so it needs the verbatim file content. Listings get
+    // it stripped via getBusinesses (size).
+    business._planRaw = planResult.raw
+    return business
   } catch {
     return null
   }
