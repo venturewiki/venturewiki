@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { getUserOctokit } from '@/lib/github'
+import { getUserOctokit, getRepoContent } from '@/lib/github'
 
 export const dynamic = 'force-dynamic'
 
@@ -68,7 +68,7 @@ export async function GET() {
         const r = repos[cursor++]
         let hasVW = false
         try {
-          await octokit.rest.repos.getContent({ owner: r.owner.login, repo: r.name, path: '.venturewiki' })
+          await getRepoContent(octokit, { owner: r.owner.login, repo: r.name, path: '.venturewiki' })
           hasVW = true
         } catch {
           hasVW = false

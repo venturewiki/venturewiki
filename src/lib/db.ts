@@ -1,6 +1,6 @@
 import yaml from 'js-yaml'
 import type { Octokit } from 'octokit'
-import { getPublicOctokit, getAdminOctokit, GITHUB_ORG } from './github'
+import { getPublicOctokit, getAdminOctokit, GITHUB_ORG, getRepoContent, putRepoContent } from './github'
 import { generatePagesWorkflow, enableGitHubPages } from './pages-template'
 import type { BusinessPlan, VWUser, EditRecord, Comment, AdminStats, BusinessStage, ProductType, RoleCandidate, Validation, InvestmentInterest, VentureValue } from '@/types'
 
@@ -109,7 +109,7 @@ async function readPlanYaml(
   // private repos). Fall back to the viewer's OAuth token if we can't read it
   // — that path is what unlocks private cross-owner ventures for their owner.
   const tryRead = async (octokit: Octokit) => {
-    const { data } = await octokit.rest.repos.getContent({
+    const { data } = await getRepoContent(octokit, {
       owner,
       repo: slug,
       path: '.venturewiki/plan.yaml',
@@ -157,7 +157,7 @@ async function writePlanYaml(
   const owner = await resolveBusinessOwner(slug)
   if (!owner) throw new Error('Business not found')
   const octokit = pickWriteOctokit(owner, viewerOctokit)
-  await octokit.rest.repos.createOrUpdateFileContents({
+  await putRepoContent(octokit, {
     owner,
     repo: slug,
     path: '.venturewiki/plan.yaml',
@@ -296,7 +296,7 @@ export async function createBusiness(
     updatedAt: new Date().toISOString(),
   }
 
-  await viewerOctokit.rest.repos.createOrUpdateFileContents({
+  await putRepoContent(viewerOctokit, {
     owner,
     repo: slug,
     path: '.venturewiki/plan.yaml',
@@ -304,7 +304,7 @@ export async function createBusiness(
     content: encodeContent(yaml.dump(plan, { lineWidth: -1 })),
   })
 
-  await viewerOctokit.rest.repos.createOrUpdateFileContents({
+  await putRepoContent(viewerOctokit, {
     owner,
     repo: slug,
     path: 'README.md',
@@ -315,7 +315,7 @@ export async function createBusiness(
   // GitHub Pages workflow + enable Pages — best-effort. May fail on personal
   // free accounts for private repos; we don't want that to block creation.
   try {
-    await viewerOctokit.rest.repos.createOrUpdateFileContents({
+    await putRepoContent(viewerOctokit, {
       owner,
       repo: slug,
       path: '.github/workflows/pages.yml',
@@ -394,13 +394,13 @@ export async function updateBusiness(
   const owner = existing.owner
   const octokit = pickWriteOctokit(owner, viewerOctokit)
   try {
-    const { data: readmeFile } = await octokit.rest.repos.getContent({
+    const { data: readmeFile } = await getRepoContent(octokit, {
       owner,
       repo: id,
       path: 'README.md',
     })
     if ('sha' in readmeFile) {
-      await octokit.rest.repos.createOrUpdateFileContents({
+      await putRepoContent(octokit, {
         owner,
         repo: id,
         path: 'README.md',
@@ -550,7 +550,7 @@ async function readUsersRegistry(): Promise<{ users: VWUser[]; sha: string }> {
 
   try {
     const octokit = getAdminOctokit()
-    const { data } = await octokit.rest.repos.getContent({
+    const { data } = await getRepoContent(octokit, {
       owner: GITHUB_ORG,
       repo: USERS_REPO,
       path: 'users.yaml',
@@ -566,7 +566,7 @@ async function readUsersRegistry(): Promise<{ users: VWUser[]; sha: string }> {
 
 async function writeUsersRegistry(users: VWUser[], sha: string): Promise<void> {
   const octokit = getAdminOctokit()
-  await octokit.rest.repos.createOrUpdateFileContents({
+  await putRepoContent(octokit, {
     owner: GITHUB_ORG,
     repo: USERS_REPO,
     path: 'users.yaml',
@@ -825,7 +825,7 @@ async function readCandidatesYaml(slug: string): Promise<{ data: RoleCandidate[]
   if (!owner) return { data: [], sha: '' }
   try {
     const octokit = getAdminOctokit()
-    const { data } = await octokit.rest.repos.getContent({
+    const { data } = await getRepoContent(octokit, {
       owner, repo: slug, path: '.venturewiki/candidates.yaml',
     })
     if ('content' in data && data.type === 'file') {
@@ -839,7 +839,7 @@ async function writeCandidatesYaml(slug: string, candidates: RoleCandidate[], sh
   const owner = await resolveBusinessOwner(slug)
   if (!owner) throw new Error('Business not found')
   const octokit = pickWriteOctokit(owner, viewerOctokit)
-  await octokit.rest.repos.createOrUpdateFileContents({
+  await putRepoContent(octokit, {
     owner, repo: slug, path: '.venturewiki/candidates.yaml',
     message: '👤 Update role candidates',
     content: encodeContent(yaml.dump(candidates, { lineWidth: -1 })),
@@ -891,7 +891,7 @@ async function readValidationsYaml(slug: string): Promise<{ data: Validation[]; 
   if (!owner) return { data: [], sha: '' }
   try {
     const octokit = getAdminOctokit()
-    const { data } = await octokit.rest.repos.getContent({
+    const { data } = await getRepoContent(octokit, {
       owner, repo: slug, path: '.venturewiki/validations.yaml',
     })
     if ('content' in data && data.type === 'file') {
@@ -905,7 +905,7 @@ async function writeValidationsYaml(slug: string, validations: Validation[], sha
   const owner = await resolveBusinessOwner(slug)
   if (!owner) throw new Error('Business not found')
   const octokit = pickWriteOctokit(owner, viewerOctokit)
-  await octokit.rest.repos.createOrUpdateFileContents({
+  await putRepoContent(octokit, {
     owner, repo: slug, path: '.venturewiki/validations.yaml',
     message: '✅ Update validations',
     content: encodeContent(yaml.dump(validations, { lineWidth: -1 })),
@@ -937,7 +937,7 @@ async function readInvestmentsYaml(slug: string): Promise<{ data: InvestmentInte
   if (!owner) return { data: [], sha: '' }
   try {
     const octokit = getAdminOctokit()
-    const { data } = await octokit.rest.repos.getContent({
+    const { data } = await getRepoContent(octokit, {
       owner, repo: slug, path: '.venturewiki/investments.yaml',
     })
     if ('content' in data && data.type === 'file') {
@@ -951,7 +951,7 @@ async function writeInvestmentsYaml(slug: string, investments: InvestmentInteres
   const owner = await resolveBusinessOwner(slug)
   if (!owner) throw new Error('Business not found')
   const octokit = pickWriteOctokit(owner, viewerOctokit)
-  await octokit.rest.repos.createOrUpdateFileContents({
+  await putRepoContent(octokit, {
     owner, repo: slug, path: '.venturewiki/investments.yaml',
     message: '💰 Update investment interest',
     content: encodeContent(yaml.dump(investments, { lineWidth: -1 })),
@@ -1044,7 +1044,7 @@ export async function listVentureFiles(slug: string): Promise<VentureFile[]> {
 
   try {
     const octokit = getPublicOctokit()
-    const { data } = await octokit.rest.repos.getContent({
+    const { data } = await getRepoContent(octokit, {
       owner,
       repo: slug,
       path: '.venturewiki',
@@ -1085,7 +1085,7 @@ export async function createVentureFile(
   const owner = await resolveBusinessOwner(slug)
   if (!owner) throw new Error('Business not found')
   const octokit = pickWriteOctokit(owner, viewerOctokit)
-  await octokit.rest.repos.createOrUpdateFileContents({
+  await putRepoContent(octokit, {
     owner,
     repo: slug,
     path: `.venturewiki/${filePath}`,
@@ -1113,7 +1113,7 @@ export async function readVentureFile(
 
   try {
     const octokit = getPublicOctokit()
-    const { data } = await octokit.rest.repos.getContent({
+    const { data } = await getRepoContent(octokit, {
       owner,
       repo: slug,
       path: `.venturewiki/${filePath}`,
@@ -1141,7 +1141,7 @@ export async function readVentureFileBuffer(
 
   try {
     const octokit = getPublicOctokit()
-    const { data } = await octokit.rest.repos.getContent({
+    const { data } = await getRepoContent(octokit, {
       owner,
       repo: slug,
       path: `.venturewiki/${filePath}`,

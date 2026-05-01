@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { getUserOctokit } from '@/lib/github'
+import { getUserOctokit, getRepoContent, putRepoContent } from '@/lib/github'
 import yaml from 'js-yaml'
 
 export const dynamic = 'force-dynamic'
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
 
   // Refuse if .venturewiki/plan.yaml already exists
   try {
-    await octokit.rest.repos.getContent({ owner, repo: name, path: '.venturewiki/plan.yaml' })
+    await getRepoContent(octokit, { owner, repo: name, path: '.venturewiki/plan.yaml' })
     return NextResponse.json({ error: 'Repo already has .venturewiki/plan.yaml' }, { status: 409 })
   } catch {
     /* expected */
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
   const planYaml = defaultPlanYaml({ owner, name, description, userId: session.user.id })
 
   try {
-    await octokit.rest.repos.createOrUpdateFileContents({
+    await putRepoContent(octokit, {
       owner,
       repo: name,
       path: '.venturewiki/plan.yaml',

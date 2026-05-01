@@ -27,3 +27,48 @@ export function getPublicOctokit(): Octokit {
   _publicOctokit = token ? new Octokit({ auth: token }) : new Octokit()
   return _publicOctokit
 }
+
+// ── Repo Contents API helpers ────────────────────────────────────────────────
+// Octokit's high-level repos.getContent / createOrUpdateFileContents /
+// deleteFile pass `path` through `{path}` URL templating, which percent-encodes
+// the slashes inside the path (e.g. `.venturewiki/plan.yaml` →
+// `.venturewiki%2Fplan.yaml`). GitHub deprecated that URL form on
+// 2028-03-10. Using `{+path}` instead keeps slashes literal, which is the
+// non-deprecated form going forward.
+
+export async function getRepoContent(
+  octokit: Octokit,
+  params: { owner: string; repo: string; path: string; ref?: string },
+) {
+  return octokit.request('GET /repos/{owner}/{repo}/contents/{+path}', params)
+}
+
+export async function putRepoContent(
+  octokit: Octokit,
+  params: {
+    owner: string
+    repo: string
+    path: string
+    message: string
+    content: string
+    sha?: string
+    branch?: string
+    committer?: { name: string; email: string }
+  },
+) {
+  return octokit.request('PUT /repos/{owner}/{repo}/contents/{+path}', params)
+}
+
+export async function deleteRepoContent(
+  octokit: Octokit,
+  params: {
+    owner: string
+    repo: string
+    path: string
+    message: string
+    sha: string
+    branch?: string
+  },
+) {
+  return octokit.request('DELETE /repos/{owner}/{repo}/contents/{+path}', params)
+}

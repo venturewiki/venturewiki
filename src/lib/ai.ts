@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { getPublicOctokit, GITHUB_ORG } from './github'
+import { getPublicOctokit, GITHUB_ORG, getRepoContent } from './github'
 
 const TEMPLATE_REPO = 'venture-template'
 const TEMPLATE_PATH = '.venturewiki/plan-template.yaml'
@@ -14,7 +14,7 @@ async function getTemplate(): Promise<string> {
     return templateCache.content
   }
   const octokit = getPublicOctokit()
-  const { data } = await octokit.rest.repos.getContent({
+  const { data } = await getRepoContent(octokit, {
     owner: GITHUB_ORG,
     repo: TEMPLATE_REPO,
     path: TEMPLATE_PATH,
