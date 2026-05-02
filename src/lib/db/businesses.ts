@@ -5,6 +5,7 @@ import type { BusinessPlan, EditRecord } from '@/types'
 import { resolveBusinessOwner, pickWriteOctokit } from './owner'
 import { dumpYaml, encodeContent, readRepoYaml, writeRepoFile, writeRepoYaml } from './yaml'
 import { planToTopics } from './readme'
+import { defaultPlanYaml } from './default-plan'
 
 const PLAN_PATH = '.venturewiki/plan.yaml'
 
@@ -146,8 +147,39 @@ export async function getBusinessBySlug(
     }
     if (!repo) return null
 
-    const plan = await readPlan(slug, viewerOctokit)
-    if (!plan) return null
+    let plan = await readPlan(slug, viewerOctokit)
+
+    // Self-heal: if the repo has the `venturewiki` topic but no plan.yaml,
+    // scaffold a default plan.yaml so the venture page renders immediately.
+    if (!plan) {
+      const topics: string[] = repo.topics || []
+      if (!topics.includes('venturewiki')) return null
+
+      // The repo is tagged as a VW venture — create the missing plan.yaml.
+      const writeOctokit = pickWriteOctokit(owner, viewerOctokit)
+      const planYaml = defaultPlanYaml({
+        owner,
+        name: slug,
+        description: repo.description || '',
+        userId: 'system',
+      })
+      try {
+        await putRepoContent(writeOctokit, {
+          owner,
+          repo: slug,
+          path: PLAN_PATH,
+          message: '📋 Auto-scaffold plan.yaml (venturewiki topic detected)',
+          content: encodeContent(planYaml),
+        })
+        invalidateCache(`plan:${slug}`)
+        plan = await readPlan(slug, viewerOctokit)
+      } catch {
+        // Can't write — e.g. no push access. Return null gracefully.
+        return null
+      }
+      if (!plan) return null
+    }
+
     const business = repoToPlan(repo, plan.data) as BusinessPlan & { _planRaw?: string }
     // Detail page renders an inline raw-YAML editor — needs the verbatim file.
     business._planRaw = plan.raw

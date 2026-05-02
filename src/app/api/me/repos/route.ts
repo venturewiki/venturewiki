@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { getUserOctokit, getRepoContent } from '@/lib/github'
+import { getUserOctokit } from '@/lib/github'
 
 export const dynamic = 'force-dynamic'
 
@@ -59,49 +59,23 @@ export async function GET() {
     const truncated = all.length > HARD_LIMIT_REPOS
     const repos = all.slice(0, HARD_LIMIT_REPOS)
 
-    // Probe `.venturewiki` per repo with bounded concurrency
-    const results: MyRepo[] = []
-    const concurrency = 10
-    let cursor = 0
-    const worker = async () => {
-      while (cursor < repos.length) {
-        const r = repos[cursor++]
-        const topics: string[] = (r.topics as string[] | undefined) || []
-        const hasTopic = topics.includes('venturewiki')
-        // If the repo already has the venturewiki topic, trust it — skip the
-        // expensive content probe. Only probe repos without the topic.
-        let hasVW = hasTopic
-        if (!hasTopic) {
-          try {
-            await getRepoContent(octokit, { owner: r.owner.login, repo: r.name, path: '.venturewiki' })
-            hasVW = true
-          } catch {
-            hasVW = false
-          }
-        }
-        results.push({
-          fullName: r.full_name,
-          owner: r.owner.login,
-          name: r.name,
-          description: r.description || '',
-          visibility: r.private ? 'private' : 'public',
-          isFork: !!r.fork,
-          htmlUrl: r.html_url,
-          pushedAt: r.pushed_at || r.updated_at || '',
-          hasVentureWiki: hasVW,
-          hasTopic,
-        })
-        // Auto-heal: if .venturewiki exists but the topic is missing, add it
-        // so the "All Ventures" directory picks up this repo.
-        if (hasVW && !hasTopic) {
-          octokit.rest.repos.replaceAllTopics({
-            owner: r.owner.login, repo: r.name,
-            names: [...topics, 'venturewiki'],
-          }).catch(() => {}) // fire-and-forget, best-effort
-        }
+    // Topic `venturewiki` is the single source of truth — no content probing needed.
+    const results: MyRepo[] = repos.map(r => {
+      const topics: string[] = (r.topics as string[] | undefined) || []
+      const hasTopic = topics.includes('venturewiki')
+      return {
+        fullName: r.full_name,
+        owner: r.owner.login,
+        name: r.name,
+        description: r.description || '',
+        visibility: r.private ? 'private' : 'public',
+        isFork: !!r.fork,
+        htmlUrl: r.html_url,
+        pushedAt: r.pushed_at || r.updated_at || '',
+        hasVentureWiki: hasTopic,
+        hasTopic,
       }
-    }
-    await Promise.all(Array.from({ length: concurrency }, worker))
+    })
 
     results.sort((a, b) => {
       if (a.hasVentureWiki !== b.hasVentureWiki) return a.hasVentureWiki ? -1 : 1
@@ -114,3 +88,4 @@ export async function GET() {
     return NextResponse.json({ error: e?.message || 'Failed to list repos' }, { status: 500 })
   }
 }
+

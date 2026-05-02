@@ -2,58 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getUserOctokit, getRepoContent, putRepoContent } from '@/lib/github'
-import yaml from 'js-yaml'
+import { defaultPlanYaml } from '@/lib/db/default-plan'
 
 export const dynamic = 'force-dynamic'
 
 function encode(s: string) {
   return Buffer.from(s, 'utf-8').toString('base64')
-}
-
-function defaultPlanYaml(opts: { owner: string; name: string; description: string; userId: string }) {
-  const plan = {
-    id: `${opts.owner}/${opts.name}`,
-    slug: opts.name,
-    cover: {
-      companyName: opts.name,
-      tagline: opts.description,
-      logoEmoji: '🚀',
-      stage: 'idea',
-      productType: 'web-app',
-      industryVertical: '',
-      headquarters: '',
-      legalStructure: '',
-      fundingStage: 'bootstrapped',
-      websiteUrl: '',
-      version: 'v0.1',
-      mission: '',
-      vision: '',
-      tractionHighlights: { revenue: '', users: '', partnerships: '', press: '' },
-    },
-    problemSolution: {
-      corePainPoint: '',
-      painDimensions: { who: '', frequency: '', currentWorkarounds: '', costOfProblem: '', urgencyLevel: '' },
-      solutionOneLiner: '',
-      features: [],
-      unfairAdvantage: '',
-      market: { tamSize: '', tamSource: '', samSize: '', samSource: '', somSize: '', somSource: '' },
-      whyNow: '',
-    },
-    productGtm: {},
-    teamRoadmap: {},
-    fundingAsk: { elevatorPitch: { hook: '' } },
-    financials: { revenueModel: '', grossMargin: '', burnRate: '', runway: '', projections: [] },
-    createdBy: opts.userId,
-    contributors: [opts.userId],
-    viewCount: 0,
-    editCount: 0,
-    isPublic: true,
-    isArchived: false,
-    isFeatured: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  }
-  return yaml.dump(plan, { lineWidth: -1 })
 }
 
 export async function POST(req: NextRequest) {
