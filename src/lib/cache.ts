@@ -1,7 +1,7 @@
 // Tiny in-memory key-value cache with TTL. Keyed by string, prefix-invalidated.
 // Used to cut redundant GitHub API calls within a single server process.
 
-const TTL = 60_000
+const TTL = 300_000  // 5 minutes
 
 const store = new Map<string, { data: any; ts: number }>()
 

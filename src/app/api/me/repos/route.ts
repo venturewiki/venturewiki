@@ -66,14 +66,19 @@ export async function GET() {
     const worker = async () => {
       while (cursor < repos.length) {
         const r = repos[cursor++]
-        let hasVW = false
-        try {
-          await getRepoContent(octokit, { owner: r.owner.login, repo: r.name, path: '.venturewiki' })
-          hasVW = true
-        } catch {
-          hasVW = false
-        }
         const topics: string[] = (r.topics as string[] | undefined) || []
+        const hasTopic = topics.includes('venturewiki')
+        // If the repo already has the venturewiki topic, trust it — skip the
+        // expensive content probe. Only probe repos without the topic.
+        let hasVW = hasTopic
+        if (!hasTopic) {
+          try {
+            await getRepoContent(octokit, { owner: r.owner.login, repo: r.name, path: '.venturewiki' })
+            hasVW = true
+          } catch {
+            hasVW = false
+          }
+        }
         results.push({
           fullName: r.full_name,
           owner: r.owner.login,
@@ -84,8 +89,16 @@ export async function GET() {
           htmlUrl: r.html_url,
           pushedAt: r.pushed_at || r.updated_at || '',
           hasVentureWiki: hasVW,
-          hasTopic: topics.includes('venturewiki'),
+          hasTopic,
         })
+        // Auto-heal: if .venturewiki exists but the topic is missing, add it
+        // so the "All Ventures" directory picks up this repo.
+        if (hasVW && !hasTopic) {
+          octokit.rest.repos.replaceAllTopics({
+            owner: r.owner.login, repo: r.name,
+            names: [...topics, 'venturewiki'],
+          }).catch(() => {}) // fire-and-forget, best-effort
+        }
       }
     }
     await Promise.all(Array.from({ length: concurrency }, worker))
