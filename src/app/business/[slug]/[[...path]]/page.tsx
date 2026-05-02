@@ -14,7 +14,8 @@ import {
   fetchBusiness, toggleFeatured, fetchEditHistory, fetchComments, postComment,
   fetchCandidates, fetchValidations, fetchInvestments, fetchVentureValue,
   fetchVentureFiles, fetchVentureFile, createVentureFile, updateBusiness,
-  updatePlanYaml,
+  updatePlanYaml, moveVentureFile,
+  createVentureFolder, renameVentureFolder, deleteVentureFolder,
 } from '@/lib/api'
 import { categoryFromName } from '@/lib/mime'
 import { encodePathSegment } from '@/lib/file-paths'
@@ -42,7 +43,8 @@ const PLATFORM_TAB_IDS = ['candidates', 'validations', 'invest', 'history', 'dis
 export default function BusinessPage() {
   const params       = useParams<{ slug: string; path?: string[] }>()
   const slug         = params.slug
-  const firstSegment = (params.path ?? [])[0]
+  const pathSegments = params.path ?? []
+  const firstSegment = pathSegments[0]
   const router       = useRouter()
   const { data: session } = useSession()
 
@@ -65,8 +67,11 @@ export default function BusinessPage() {
   const sectionKeys = sectionDescriptors.map(s => s.key)
   const tabIdSet    = new Set<string>([...sectionKeys, ...PLATFORM_TAB_IDS])
   const defaultTab  = sectionKeys[0] || 'discuss'
+  // A multi-segment path (e.g. /business/slug/docs/readme.md) is a file inside a subfolder.
+  // A single segment that isn't a known tab is a root-level file.
+  const fullPath    = pathSegments.join('/')
   const isFile      = !!firstSegment && !!business && !tabIdSet.has(firstSegment)
-  const activeFile  = isFile ? firstSegment : null
+  const activeFile  = isFile ? fullPath : null
   const activeTab   = !firstSegment || isFile ? defaultTab : firstSegment
 
   useEffect(() => {
@@ -89,7 +94,8 @@ export default function BusinessPage() {
     if (!business || !activeFile) { setFileContent(null); return }
     // Only fetch text content when the viewer needs it. Binary categories
     // render directly via the raw URL — no JSON fetch required.
-    const cat = categoryFromName(activeFile)
+    const fileName = activeFile.split('/').pop() || activeFile
+    const cat = categoryFromName(fileName)
     if (cat !== 'markdown' && cat !== 'text') { setFileContent(null); return }
     setFileLoading(true)
     fetchVentureFile(business.id, activeFile)
@@ -127,6 +133,60 @@ export default function BusinessPage() {
     setFiles(await fetchVentureFiles(business.id))
     selectFile(created)
     return created
+  }
+
+  const refreshFiles = async () => {
+    if (!business) return
+    setFiles(await fetchVentureFiles(business.id))
+  }
+
+  const handleCreateFolder = async () => {
+    if (!business) return
+    const name = prompt('New folder name:')
+    if (!name?.trim()) return
+    try {
+      await createVentureFolder(business.id, name.trim())
+      await refreshFiles()
+    } catch (e: any) {
+      alert(e?.message || 'Failed to create folder')
+    }
+  }
+
+  const handleRenameFolder = async (path: string) => {
+    if (!business) return
+    const currentName = path.split('/').pop() || path
+    const newName = prompt(`Rename folder "${currentName}":`, currentName)
+    if (!newName?.trim() || newName.trim() === currentName) return
+    const parentDir = path.includes('/') ? path.substring(0, path.lastIndexOf('/')) : ''
+    const newPath = parentDir ? `${parentDir}/${newName.trim()}` : newName.trim()
+    try {
+      await renameVentureFolder(business.id, path, newPath)
+      await refreshFiles()
+    } catch (e: any) {
+      alert(e?.message || 'Failed to rename folder')
+    }
+  }
+
+  const handleDeleteFolder = async (path: string) => {
+    if (!business) return
+    if (!confirm(`Delete folder "${path}" and all its contents?`)) return
+    try {
+      await deleteVentureFolder(business.id, path)
+      await refreshFiles()
+    } catch (e: any) {
+      alert(e?.message || 'Failed to delete folder')
+    }
+  }
+
+  const handleMoveFile = async (srcPath: string, destPath: string) => {
+    if (!business) return
+    try {
+      await moveVentureFile(business.id, srcPath, destPath)
+      await refreshFiles()
+      selectFile(destPath)
+    } catch (e: any) {
+      alert(e?.message || 'Failed to move file')
+    }
   }
 
   if (loading) return <LoadingState />
@@ -183,6 +243,10 @@ export default function BusinessPage() {
             onSelectTab={selectTab}
             onSelectFile={selectFile}
             onAddFile={() => setAddFileOpen(true)}
+            onCreateFolder={handleCreateFolder}
+            onRenameFolder={handleRenameFolder}
+            onDeleteFolder={handleDeleteFolder}
+            onMoveFile={handleMoveFile}
           />
 
           <main className="min-w-0">
@@ -281,6 +345,7 @@ export default function BusinessPage() {
         open={addFileOpen}
         onClose={() => setAddFileOpen(false)}
         onCreate={handleCreateFile}
+        folders={files.filter(f => f.type === 'dir').map(f => f.path)}
       />
     </div>
   )

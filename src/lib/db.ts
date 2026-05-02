@@ -30,6 +30,7 @@ export {
 } from './db/contributions'
 export {
   listVentureFiles, createVentureFile, readVentureFile, readVentureFileBuffer,
+  moveVentureFile, createVentureFolder, renameVentureFolder, deleteVentureFolder,
   type VentureFile,
 } from './db/files'
 export { getAdminStats } from './db/stats'

@@ -1,22 +1,25 @@
 'use client'
 import { useState } from 'react'
-import { FilePlus, X } from 'lucide-react'
+import { FilePlus, X, Folder } from 'lucide-react'
+import type { VentureFile } from '@/lib/api'
 
 export function AddFileModal({
-  open, onClose, onCreate,
+  open, onClose, onCreate, folders,
 }: {
   open: boolean
   onClose: () => void
   onCreate: (name: string, content: string) => Promise<string>
+  folders?: string[]
 }) {
   const [name, setName] = useState('')
+  const [folder, setFolder] = useState('')
   const [content, setContent] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   if (!open) return null
 
-  const reset = () => { setName(''); setContent(''); setError(null) }
+  const reset = () => { setName(''); setFolder(''); setContent(''); setError(null) }
 
   const close = () => { if (!saving) { reset(); onClose() } }
 
@@ -24,7 +27,8 @@ export function AddFileModal({
     setError(null)
     setSaving(true)
     try {
-      await onCreate(name.trim(), content)
+      const fullPath = folder ? `${folder}/${name.trim()}` : name.trim()
+      await onCreate(fullPath, content)
       reset()
       onClose()
     } catch (e: any) {
@@ -42,6 +46,8 @@ export function AddFileModal({
     reader.onerror = () => setError('Could not read file (must be a text file)')
     reader.readAsText(file)
   }
+
+  const availableFolders = folders ?? []
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" onClick={close}>
@@ -63,6 +69,22 @@ export function AddFileModal({
           Adds a file to <code className="bg-rule/40 px-1 rounded font-mono">.venturewiki/</code> in this venture&apos;s repository.
           Letters, numbers, spaces, dot, dash, underscore only.
         </p>
+
+        {availableFolders.length > 0 && (
+          <>
+            <label className="block text-xs uppercase tracking-wider text-muted mb-1 font-mono">Folder (optional)</label>
+            <select
+              value={folder}
+              onChange={e => setFolder(e.target.value)}
+              className="input-base mb-4 font-mono text-sm"
+            >
+              <option value="">/ (root)</option>
+              {availableFolders.map(f => (
+                <option key={f} value={f}>{f}/</option>
+              ))}
+            </select>
+          </>
+        )}
 
         <label className="block text-xs uppercase tracking-wider text-muted mb-1 font-mono">Filename</label>
         <input

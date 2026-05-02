@@ -192,7 +192,7 @@ export async function fetchVentureValue(slug: string): Promise<VentureValue> {
 
 // ── .venturewiki Files ─────────────────────────────────────────────────────
 
-export interface VentureFile { path: string; name: string; size: number }
+export interface VentureFile { path: string; name: string; size: number; type: 'file' | 'dir' }
 
 export async function fetchVentureFiles(slug: string): Promise<VentureFile[]> {
   try { return await apiFetch<VentureFile[]>(`/api/businesses/${enc(slug)}/files`) } catch { return [] }
@@ -210,6 +210,32 @@ export async function createVentureFile(slug: string, name: string, content: str
     method: 'POST', body: { name, content }, errorLabel: 'Failed to create file',
   })
   return data.name
+}
+
+export async function moveVentureFile(slug: string, srcPath: string, destPath: string): Promise<void> {
+  await apiFetch(`/api/businesses/${enc(slug)}/files/move`, {
+    method: 'POST', body: { srcPath, destPath }, errorLabel: 'Failed to move file',
+  })
+}
+
+// ── .venturewiki Folders ───────────────────────────────────────────────────
+
+export async function createVentureFolder(slug: string, name: string): Promise<void> {
+  await apiFetch(`/api/businesses/${enc(slug)}/folders`, {
+    method: 'POST', body: { name }, errorLabel: 'Failed to create folder',
+  })
+}
+
+export async function renameVentureFolder(slug: string, oldPath: string, newPath: string): Promise<void> {
+  await apiFetch(`/api/businesses/${enc(slug)}/folders`, {
+    method: 'PUT', body: { oldPath, newPath }, errorLabel: 'Failed to rename folder',
+  })
+}
+
+export async function deleteVentureFolder(slug: string, path: string): Promise<void> {
+  await apiFetch(`/api/businesses/${enc(slug)}/folders`, {
+    method: 'DELETE', body: { path }, errorLabel: 'Failed to delete folder',
+  })
 }
 
 // ── My GitHub (orgs + repos + onboard) ─────────────────────────────────────
