@@ -1,0 +1,68 @@
+id: "{{owner}}/{{slug}}"
+slug: "{{slug}}"
+
+cover:
+  companyName: "{{slug}}"
+  tagline: "{{description}}"
+  logoEmoji: "🚀"
+  stage: idea
+  productType: web-app
+  industryVertical: ""
+  headquarters: ""
+  legalStructure: ""
+  fundingStage: bootstrapped
+  websiteUrl: ""
+  version: v0.1
+  mission: ""
+  vision: ""
+  tractionHighlights:
+    revenue: ""
+    users: ""
+    partnerships: ""
+    press: ""
+
+problemSolution:
+  corePainPoint: ""
+  painDimensions:
+    who: ""
+    frequency: ""
+    currentWorkarounds: ""
+    costOfProblem: ""
+    urgencyLevel: ""
+  solutionOneLiner: ""
+  features: []
+  unfairAdvantage: ""
+  market:
+    tamSize: ""
+    tamSource: ""
+    samSize: ""
+    samSource: ""
+    somSize: ""
+    somSource: ""
+  whyNow: ""
+
+productGtm: {}
+
+teamRoadmap: {}
+
+fundingAsk:
+  elevatorPitch:
+    hook: ""
+
+financials:
+  revenueModel: ""
+  grossMargin: ""
+  burnRate: ""
+  runway: ""
+  projections: []
+
+createdBy: "{{userId}}"
+contributors:
+  - "{{userId}}"
+viewCount: 0
+editCount: 0
+isPublic: true
+isArchived: false
+isFeatured: false
+createdAt: "{{createdAt}}"
+updatedAt: "{{updatedAt}}"
