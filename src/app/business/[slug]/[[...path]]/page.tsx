@@ -32,6 +32,7 @@ import { InvestmentsTab } from '@/components/venture/InvestmentsTab'
 import { HistoryTab } from '@/components/venture/HistoryTab'
 import { DiscussionTab } from '@/components/venture/DiscussionTab'
 import { AddFileModal } from '@/components/venture/AddFileModal'
+import InviteCollaboratorModal from '@/components/venture/InviteCollaboratorModal'
 import type { BusinessPlan, EditRecord, Comment, RoleCandidate, Validation, InvestmentInterest, VentureValue } from '@/types'
 import type { VentureFile } from '@/lib/api'
 
@@ -118,7 +119,8 @@ export default function BusinessPage() {
     setBusiness(updated)
   }
 
-  const [addFileOpen, setAddFileOpen] = useState(false)
+  const [addFileOpen,        setAddFileOpen]        = useState(false)
+  const [inviteColabOpen,    setInviteColabOpen]    = useState(false)
 
   const handleComment = async () => {
     if (!newComment.trim() || !session || !business) return
@@ -264,6 +266,14 @@ export default function BusinessPage() {
               <span className="flex items-center gap-1"><GitBranch className="w-3.5 h-3.5" />{formatNumber(business.editCount)} edits</span>
               <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />Updated {formatRelativeTime(business.updatedAt)}</span>
               <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />{business.contributors?.length || 1} contributor{(business.contributors?.length || 1) > 1 ? 's' : ''}</span>
+              {canEdit && (
+                <button
+                  className="ml-auto flex items-center gap-1 text-xs text-accent hover:text-accent/80 transition-colors"
+                  onClick={() => setInviteColabOpen(true)}
+                >
+                  <UserPlus className="w-3.5 h-3.5" /> Invite collaborator
+                </button>
+              )}
             </div>
 
             {activeFile && (
@@ -346,6 +356,12 @@ export default function BusinessPage() {
         onClose={() => setAddFileOpen(false)}
         onCreate={handleCreateFile}
         folders={files.filter(f => f.type === 'dir').map(f => f.path)}
+      />
+
+      <InviteCollaboratorModal
+        open={inviteColabOpen}
+        ventureId={business.id}
+        onClose={() => setInviteColabOpen(false)}
       />
     </div>
   )
