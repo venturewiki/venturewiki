@@ -47,7 +47,9 @@ export default function VenturePage() {
   const params       = useParams<{ owner: string; slug: string; path?: string[] }>()
   const owner        = params.owner
   const slug         = params.slug
-  const pathSegments = params.path ?? []
+  // useParams() may return percent-encoded segments without decoding them.
+  // Normalize to plain strings so rawFileUrl / encodePathSegment don't double-encode.
+  const pathSegments = (params.path ?? []).map(s => { try { return decodeURIComponent(s) } catch { return s } })
   const firstSegment = pathSegments[0]
   const router       = useRouter()
   const { data: session } = useSession()
