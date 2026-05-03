@@ -4,7 +4,7 @@ slug: "{{slug}}"
 cover:
   companyName: "{{slug}}"
   tagline: "{{description}}"
-  logoEmoji: "🚀"
+  logoEmoji: "\U0001F680"
   stage: idea
   productType: web-app
   industryVertical: ""
