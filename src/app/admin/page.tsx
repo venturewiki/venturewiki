@@ -171,7 +171,7 @@ export default function AdminDashboard() {
           </div>
           <div className="space-y-2">
             {recent.map(b => (
-              <Link key={b.id} href={`/business/${b.slug}`}
+              <Link key={b.id} href={b.owner ? `/${b.owner}/${b.slug}` : `/business/${b.slug}`}
                 className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-rule/30 transition-colors group"
               >
                 <span className="text-xl shrink-0">{b.cover.logoEmoji || '🚀'}</span>

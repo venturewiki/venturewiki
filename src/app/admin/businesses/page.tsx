@@ -96,7 +96,7 @@ export default function AdminBusinesses() {
                     <div className="flex items-center gap-2.5">
                       <span className="text-lg">{b.cover.logoEmoji || '🚀'}</span>
                       <div className="min-w-0">
-                        <Link href={`/business/${b.slug}`} className="font-medium text-paper hover:text-accent transition-colors block truncate max-w-[200px]">
+                        <Link href={b.owner ? `/${b.owner}/${b.slug}` : `/business/${b.slug}`} className="font-medium text-paper hover:text-accent transition-colors block truncate max-w-[200px]">
                           {b.cover.companyName}
                         </Link>
                         <p className="text-muted text-xs truncate max-w-[200px]">{b.cover.tagline}</p>
@@ -123,7 +123,7 @@ export default function AdminBusinesses() {
                   <td className="text-xs text-muted whitespace-nowrap">{formatRelativeTime(b.updatedAt)}</td>
                   <td className="pr-4">
                     <div className="flex items-center gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Link href={`/business/${b.slug}/edit`} className="btn-ghost py-1 px-2 text-xs">
+                      <Link href={b.owner ? `/${b.owner}/${b.slug}` : `/business/${b.slug}`} className="btn-ghost py-1 px-2 text-xs">
                         <Edit3 className="w-3.5 h-3.5" />
                       </Link>
                       <button

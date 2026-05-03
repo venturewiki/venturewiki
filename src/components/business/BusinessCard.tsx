@@ -13,8 +13,10 @@ export default function BusinessCard({ business, featured }: Props) {
   const { cover } = business
   const accentColor = cover.accentColor || '#E8622A'
 
+  const href = business.owner ? `/${business.owner}/${business.slug}` : `/business/${business.slug}`
+
   return (
-    <Link href={`/business/${business.slug}`}>
+    <Link href={href}>
       <article
         className={cn(
           'venture-card relative bg-lead border border-rule rounded-xl overflow-hidden cursor-pointer h-full',

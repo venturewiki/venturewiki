@@ -42,7 +42,7 @@ export default function AdminFeatured() {
         </div>
       </div>
       <div className="flex items-center gap-1 shrink-0">
-        <Link href={`/business/${b.slug}`} className="btn-ghost py-1 px-2" target="_blank">
+        <Link href={b.owner ? `/${b.owner}/${b.slug}` : `/business/${b.slug}`} className="btn-ghost py-1 px-2" target="_blank">
           <ExternalLink className="w-3.5 h-3.5" />
         </Link>
         <button

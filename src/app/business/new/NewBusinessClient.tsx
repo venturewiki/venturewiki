@@ -103,12 +103,12 @@ export default function NewBusinessClient() {
     setSaving(true)
     try {
       const target = ownerOptions.find(o => o.key === ownerKey)?.target
-      const { slug } = await createBusiness(
+      const { slug, owner } = await createBusiness(
         { ...parsed, isPublic, createdBy: session?.user?.id || 'anonymous' },
         target,
       )
       toast.success('Venture created!')
-      router.push(`/business/${slug}`)
+      router.push(`/${owner}/${slug}`)
     } catch (e: any) {
       toast.error(e?.message || 'Failed to create venture')
     } finally {
