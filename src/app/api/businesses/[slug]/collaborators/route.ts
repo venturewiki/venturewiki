@@ -7,8 +7,13 @@ import { getAdminOctokit, getUserOctokit, GITHUB_ORG } from '@/lib/github'
 export const dynamic = 'force-dynamic'
 
 // POST /api/businesses/[slug]/collaborators
-// Body: { username: string, permission?: 'push' | 'maintain' | 'admin' }
-// Sends a GitHub repository collaboration invite to the given GitHub user.
+//
+// Two modes depending on request body:
+//   { username: string, permission?: string }
+//     → sends a GitHub repo collaboration invite to an existing GitHub user
+//   { email: string }
+//     → sends a GitHub org invitation by email (works for non-GitHub users too);
+//       only available for ventures hosted in the venturewiki org
 export async function POST(
   req: NextRequest,
   { params }: { params: { slug: string } },
@@ -20,18 +25,49 @@ export async function POST(
 
   const body = await req.json().catch(() => ({}))
   const username: string = (body.username || '').trim()
-  if (!username) {
-    return NextResponse.json({ error: 'username is required' }, { status: 400 })
-  }
+  const email: string    = (body.email    || '').trim()
 
-  const permission = ['push', 'maintain', 'admin'].includes(body.permission)
-    ? (body.permission as 'push' | 'maintain' | 'admin')
-    : 'push'
+  if (!username && !email) {
+    return NextResponse.json({ error: 'username or email is required' }, { status: 400 })
+  }
 
   const owner = await resolveBusinessOwner(params.slug)
   if (!owner) {
     return NextResponse.json({ error: 'Venture not found' }, { status: 404 })
   }
+
+  // ── Email invite: GitHub org invitation (works for people without GitHub) ──
+  if (email) {
+    if (owner !== GITHUB_ORG) {
+      return NextResponse.json(
+        {
+          error:
+            'Email invitations are only available for ventures hosted in the VentureWiki ' +
+            'organization. Ask them to create a GitHub account at github.com/join, then ' +
+            'search their username here to invite them directly.',
+        },
+        { status: 400 },
+      )
+    }
+    try {
+      await getAdminOctokit().rest.orgs.createInvitation({
+        org: GITHUB_ORG,
+        email,
+        role: 'direct_member',
+      })
+    } catch (e: any) {
+      return NextResponse.json(
+        { error: e?.message || 'Failed to send email invitation' },
+        { status: 500 },
+      )
+    }
+    return NextResponse.json({ ok: true, email })
+  }
+
+  // ── Username invite: direct GitHub repo collaborator ───────────────────────
+  const permission = ['push', 'maintain', 'admin'].includes(body.permission)
+    ? (body.permission as 'push' | 'maintain' | 'admin')
+    : 'push'
 
   // For venturewiki-org repos use the platform admin token; for repos owned by
   // the user's own account/org require their OAuth token so GitHub enforces

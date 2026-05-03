@@ -1,8 +1,8 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
-import { X, Search, ExternalLink, Loader2 } from 'lucide-react'
-import { searchGithubUsers, inviteCollaborator, type GhUserHit } from '@/lib/api'
+import { X, Search, Mail, Loader2 } from 'lucide-react'
+import { searchGithubUsers, inviteCollaborator, inviteCollaboratorByEmail, type GhUserHit } from '@/lib/api'
 
 /**
  * Modal that lets the venture owner search for a GitHub user by username or
@@ -27,6 +27,13 @@ export default function InviteCollaboratorModal({
   const [inviting, setInviting] = useState<string | null>(null)
   const [error,   setError]   = useState<string | null>(null)
   const [invited, setInvited] = useState<string[]>([])
+
+  // Email invite state
+  const [emailInput,   setEmailInput]   = useState('')
+  const [emailSending, setEmailSending] = useState(false)
+  const [emailError,   setEmailError]   = useState<string | null>(null)
+  const [emailSentTo,  setEmailSentTo]  = useState<string | null>(null)
+
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Reset state when the modal is closed / re-opened.
@@ -36,6 +43,9 @@ export default function InviteCollaboratorModal({
       setHits([])
       setError(null)
       setInvited([])
+      setEmailInput('')
+      setEmailError(null)
+      setEmailSentTo(null)
     } else {
       setTimeout(() => inputRef.current?.focus(), 50)
     }
@@ -73,12 +83,30 @@ export default function InviteCollaboratorModal({
     }
   }
 
+  const handleEmailInvite = async () => {
+    const addr = emailInput.trim()
+    if (!addr) return
+    setEmailError(null)
+    setEmailSending(true)
+    try {
+      await inviteCollaboratorByEmail(ventureId, addr)
+      setEmailSentTo(addr)
+      setEmailInput('')
+    } catch (e: any) {
+      setEmailError(e?.message || 'Could not send email invitation')
+    } finally {
+      setEmailSending(false)
+    }
+  }
+
   if (!open) return null
+
+  const noResults = !loading && query.trim().length > 0 && hits.length === 0
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center px-4"
-      onClick={() => !inviting && onClose()}
+      onClick={() => !inviting && !emailSending && onClose()}
     >
       <div className="absolute inset-0 bg-black/70" />
 
@@ -92,7 +120,7 @@ export default function InviteCollaboratorModal({
           <button
             className="text-muted hover:text-paper transition-colors"
             onClick={onClose}
-            disabled={!!inviting}
+            disabled={!!inviting || emailSending}
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -103,7 +131,7 @@ export default function InviteCollaboratorModal({
           and get <span className="text-paper/80">write access</span> to this venture&apos;s repository.
         </p>
 
-        {/* Search input */}
+        {/* ── GitHub username search ── */}
         <div className="relative mb-3">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted pointer-events-none" />
           <input
@@ -116,36 +144,17 @@ export default function InviteCollaboratorModal({
           />
         </div>
 
-        {error && (
-          <p className="text-rose-400 text-sm mb-3">{error}</p>
-        )}
+        {error && <p className="text-rose-400 text-sm mb-3">{error}</p>}
 
-        {/* Results */}
+        {/* Search results */}
         {loading && !hits.length ? (
           <div className="py-8 flex items-center justify-center text-muted text-sm gap-2">
             <Loader2 className="w-4 h-4 animate-spin" /> Searching GitHub…
           </div>
         ) : !query.trim() ? (
           <p className="text-muted text-sm italic py-4">Start typing to search GitHub users.</p>
-        ) : hits.length === 0 ? (
-          <div className="py-4 space-y-3">
-            <p className="text-muted text-sm">
-              No GitHub user found for &quot;{query}&quot;.
-            </p>
-            <a
-              href="https://github.com/join"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-primary text-xs inline-flex items-center gap-1.5"
-            >
-              Invite them to create a GitHub account <ExternalLink className="w-3 h-3" />
-            </a>
-            <p className="text-xs text-muted">
-              Share that link — once they have a GitHub account you can search their username here.
-            </p>
-          </div>
-        ) : (
-          <ul className="divide-y divide-rule/50">
+        ) : hits.length > 0 ? (
+          <ul className="divide-y divide-rule/50 mb-4">
             {hits.map(h => {
               const alreadyInvited = invited.includes(h.login)
               return (
@@ -167,9 +176,7 @@ export default function InviteCollaboratorModal({
                     >
                       @{h.login}
                     </a>
-                    {h.name && (
-                      <p className="text-muted text-xs truncate">{h.name}</p>
-                    )}
+                    {h.name && <p className="text-muted text-xs truncate">{h.name}</p>}
                   </div>
                   {alreadyInvited ? (
                     <span className="text-emerald-400 text-xs font-medium shrink-0">Invited ✓</span>
@@ -190,6 +197,67 @@ export default function InviteCollaboratorModal({
               )
             })}
           </ul>
+        ) : null}
+
+        {/* No-results state: show email invite form */}
+        {noResults && (
+          <p className="text-muted text-sm mb-4">
+            No GitHub account found for &quot;{query}&quot;.
+          </p>
+        )}
+
+        {/* ── Email invite (shown when no results or search is empty) ── */}
+        {(noResults || !query.trim()) && (
+          <div className="border border-rule/60 rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Mail className="w-4 h-4 text-accent shrink-0" />
+              <p className="text-paper/90 text-sm font-medium">
+                {noResults ? 'Invite by email instead' : "Don't know their GitHub username?"}
+              </p>
+            </div>
+            <p className="text-muted text-xs leading-relaxed">
+              GitHub will send them an invitation email. If they don&apos;t have an account yet,
+              the email guides them through signup — and they land with org membership that
+              lets them contribute to this venture. You can then add them as a direct repo
+              collaborator once you see their new username in the search above.
+            </p>
+
+            {emailSentTo ? (
+              <div className="flex items-start gap-2 text-emerald-400 text-sm">
+                <span className="shrink-0">✓</span>
+                <span>
+                  Invitation sent to <strong>{emailSentTo}</strong>. They&apos;ll receive an email
+                  from GitHub with next steps.
+                  {' '}Once they accept, search their username above to grant direct repo write access.
+                </span>
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    value={emailInput}
+                    onChange={e => setEmailInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleEmailInvite()}
+                    placeholder="their@email.com"
+                    className="input-base flex-1"
+                  />
+                  <button
+                    className="btn-primary text-xs shrink-0"
+                    onClick={handleEmailInvite}
+                    disabled={!emailInput.trim() || emailSending}
+                  >
+                    {emailSending ? (
+                      <span className="flex items-center gap-1.5">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Sending…
+                      </span>
+                    ) : 'Send invite'}
+                  </button>
+                </div>
+                {emailError && <p className="text-rose-400 text-xs">{emailError}</p>}
+              </>
+            )}
+          </div>
         )}
       </div>
     </div>

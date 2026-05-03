@@ -305,6 +305,17 @@ export async function inviteCollaborator(
   })
 }
 
+// Invite someone by email address — triggers a GitHub org invitation. The
+// recipient receives a GitHub email that works even without a GitHub account:
+// it walks them through signup then grants org membership.
+export async function inviteCollaboratorByEmail(slug: string, email: string): Promise<void> {
+  await apiFetch(`/api/businesses/${enc(slug)}/collaborators`, {
+    method: 'POST',
+    body: { email },
+    errorLabel: 'Failed to send email invitation',
+  })
+}
+
 // ── Stripe ─────────────────────────────────────────────────────────────────
 
 export async function createCheckoutSession(plan: 'monthly' | 'yearly'): Promise<string> {
