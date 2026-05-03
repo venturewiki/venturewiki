@@ -6,6 +6,64 @@ import { getAdminOctokit, getUserOctokit, GITHUB_ORG } from '@/lib/github'
 
 export const dynamic = 'force-dynamic'
 
+// GET /api/businesses/[slug]/collaborators
+//
+// Returns the org's current base-permission setting and whether it is secure
+// (i.e. "none"). If it is not "none" the handler automatically attempts to
+// tighten it using the platform admin token so that email-invited members
+// never inadvertently inherit access to every repo in the org.
+//
+// Response shape:
+//   { applicable: false }                        – venture not in the VW org
+//   { applicable: true, isSecure, basePermission, wasFixed, fixFailed, teamScoped }
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { slug: string } },
+) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const owner = await resolveBusinessOwner(params.slug)
+  if (!owner || owner !== GITHUB_ORG) {
+    return NextResponse.json({ applicable: false })
+  }
+
+  const venture = await getBusinessBySlug(params.slug)
+  const teamScoped = !!venture?._githubTeamId
+
+  let basePermission = 'unknown'
+  let wasFixed = false
+  let fixFailed = false
+
+  try {
+    const { data: org } = await getAdminOctokit().rest.orgs.get({ org: GITHUB_ORG })
+    basePermission = org.default_repository_permission || 'read'
+
+    if (basePermission !== 'none') {
+      // Auto-tighten: set org base permissions to "none" so that new org
+      // members (created via email invitations) can only access repos they
+      // were explicitly added to via their venture team.
+      try {
+        await getAdminOctokit().rest.orgs.update({
+          org: GITHUB_ORG,
+          default_repository_permission: 'none',
+        })
+        wasFixed = true
+        basePermission = 'none'
+      } catch {
+        fixFailed = true
+      }
+    }
+  } catch {
+    basePermission = 'unknown'
+  }
+
+  const isSecure = basePermission === 'none'
+  return NextResponse.json({ applicable: true, isSecure, basePermission, wasFixed, fixFailed, teamScoped })
+}
+
 // POST /api/businesses/[slug]/collaborators
 //
 // Two modes depending on request body:

@@ -316,6 +316,24 @@ export async function inviteCollaboratorByEmail(slug: string, email: string): Pr
   })
 }
 
+// Check (and auto-fix) the org's base-permission setting so email-invited
+// members only get access to the venture's team-scoped repo.
+export interface CollabSecurityStatus {
+  applicable: boolean
+  isSecure?: boolean
+  basePermission?: string
+  wasFixed?: boolean
+  fixFailed?: boolean
+  teamScoped?: boolean
+}
+
+export async function getCollaboratorSecurity(slug: string): Promise<CollabSecurityStatus> {
+  return apiFetch<CollabSecurityStatus>(
+    `/api/businesses/${enc(slug)}/collaborators`,
+    { method: 'GET', errorLabel: 'Failed to check org security' },
+  )
+}
+
 // ── Stripe ─────────────────────────────────────────────────────────────────
 
 export async function createCheckoutSession(plan: 'monthly' | 'yearly'): Promise<string> {

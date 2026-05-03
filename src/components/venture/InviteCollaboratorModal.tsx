@@ -1,8 +1,8 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
-import { X, Search, Mail, Loader2 } from 'lucide-react'
-import { searchGithubUsers, inviteCollaborator, inviteCollaboratorByEmail, type GhUserHit } from '@/lib/api'
+import { X, Search, Mail, Loader2, ShieldCheck, ShieldAlert, ShieldOff } from 'lucide-react'
+import { searchGithubUsers, inviteCollaborator, inviteCollaboratorByEmail, getCollaboratorSecurity, type GhUserHit, type CollabSecurityStatus } from '@/lib/api'
 
 /**
  * Modal that lets the venture owner search for a GitHub user by username or
@@ -34,6 +34,9 @@ export default function InviteCollaboratorModal({
   const [emailError,   setEmailError]   = useState<string | null>(null)
   const [emailSentTo,  setEmailSentTo]  = useState<string | null>(null)
 
+  // Org security status (checked on open for org-hosted ventures)
+  const [security, setSecurity] = useState<CollabSecurityStatus | null>(null)
+
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Reset state when the modal is closed / re-opened.
@@ -46,10 +49,13 @@ export default function InviteCollaboratorModal({
       setEmailInput('')
       setEmailError(null)
       setEmailSentTo(null)
+      setSecurity(null)
     } else {
       setTimeout(() => inputRef.current?.focus(), 50)
+      // Check (and auto-fix) the org's base permissions in the background.
+      getCollaboratorSecurity(ventureId).then(setSecurity).catch(() => {})
     }
-  }, [open])
+  }, [open, ventureId])
 
   // Debounced search as the user types.
   useEffect(() => {
@@ -209,6 +215,33 @@ export default function InviteCollaboratorModal({
         {/* ── Email invite (shown when no results or search is empty) ── */}
         {(noResults || !query.trim()) && (
           <div className="border border-rule/60 rounded-lg p-4 space-y-3">
+            {/* Security status banner */}
+            {security?.applicable && (
+              <div className={`flex items-start gap-2 text-xs rounded-md px-3 py-2 ${
+                security.fixFailed
+                  ? 'bg-rose-950/60 text-rose-300 border border-rose-800/50'
+                  : security.wasFixed
+                  ? 'bg-amber-950/60 text-amber-300 border border-amber-800/50'
+                  : 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/50'
+              }`}>
+                {security.fixFailed ? (
+                  <ShieldOff className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                ) : security.wasFixed ? (
+                  <ShieldAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                ) : (
+                  <ShieldCheck className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                )}
+                <span>
+                  {security.fixFailed
+                    ? 'Could not verify repo-only access — org base permissions may be open. Contact your GitHub org admin to set them to "No permission".' 
+                    : security.wasFixed
+                    ? <>Heads up: org base permissions were <strong>open</strong>. We automatically tightened them to <strong>No permission</strong> — invited members will only access this venture&apos;s repo.</>
+                    : security.teamScoped
+                    ? 'Access is scoped to this repo only — invitees will not see other org repos.'
+                    : 'Org base permissions are secure. Note: this venture has no team yet, so repo access will be granted after the invitee accepts and you add them manually.'}
+                </span>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <Mail className="w-4 h-4 text-accent shrink-0" />
               <p className="text-paper/90 text-sm font-medium">
