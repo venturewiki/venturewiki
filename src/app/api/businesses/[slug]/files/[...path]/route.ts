@@ -7,9 +7,15 @@ export const dynamic = 'force-dynamic'
 /** Returns a self-contained HTML page that renders markdown as GFM using
  *  marked.js + DOMPurify (both from jsDelivr CDN) styled with github-markdown-css dark theme. */
 function buildMarkdownHtml(name: string, content: string): string {
-  // JSON.stringify escapes all HTML special chars inside the string literal — safe to embed.
+  // JSON.stringify produces a valid JS string literal, but the HTML parser
+  // will still see a raw </script> inside a <script> block and terminate the
+  // tag early — a classic script-injection vector. Escaping </ → <\/ is the
+  // standard defence: it remains valid JSON/JS but the HTML parser won't see
+  // a closing </script> tag. Likewise escape <!-- to prevent comment tricks.
   const safeContent = JSON.stringify(content)
-  const safeTitle = name.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/<\//g, '<\\/')
+    .replace(/<!--/g, '<\\!--')
+  const safeTitle = name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
