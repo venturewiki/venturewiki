@@ -1,5 +1,5 @@
 import type { Octokit } from 'octokit'
-import { getAdminOctokit, getPublicOctokit, putRepoContent } from '@/lib/github'
+import { getAdminOctokit, getPublicOctokit, putRepoContent, GITHUB_ORG } from '@/lib/github'
 import { getCached, setCache, invalidateCache } from '@/lib/cache'
 import type { BusinessPlan, EditRecord } from '@/types'
 import { resolveBusinessOwner, pickWriteOctokit } from './owner'
@@ -93,6 +93,31 @@ export async function createBusiness(
     })
   }
 
+  // ── Create a scoped GitHub team for this venture (venturewiki-org only) ────
+  // The team is granted push access to only this repo. When inviting someone
+  // by email, we pass this team ID so the org invitation scopes their access
+  // to this venture's repo only (org base permissions must be set to "None").
+  let githubTeamId: number | undefined
+  if (target.type === 'org' && target.login === GITHUB_ORG) {
+    try {
+      const admin = getAdminOctokit()
+      const { data: team } = await admin.rest.teams.create({
+        org: GITHUB_ORG,
+        name: `venture-${slug}`,
+        description: `Collaborators for ${data.cover.companyName}`,
+        privacy: 'closed',
+      })
+      githubTeamId = team.id
+      await admin.rest.teams.addOrUpdateRepoPermissionsInOrg({
+        org: GITHUB_ORG,
+        team_slug: team.slug,
+        owner: GITHUB_ORG,
+        repo: slug,
+        permission: 'push',
+      })
+    } catch { /* best-effort: venture still works without a team */ }
+  }
+
   const plan: any = {
     ...data,
     id: slug,
@@ -106,6 +131,7 @@ export async function createBusiness(
     isFeatured: false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    ...(githubTeamId !== undefined ? { _githubTeamId: githubTeamId } : {}),
   }
 
   await putRepoContent(viewerOctokit, {

@@ -50,6 +50,9 @@ export interface BusinessPlan {
   // the rest of the plan is a placeholder stub.
   _planRaw?: string
   _planError?: string
+  // GitHub team scoped to this venture's repo (stored in plan.yaml).
+  // Used to scope email invitations so invitees only get access to this repo.
+  _githubTeamId?: number
 
   // ── Page 1: Cover & Snapshot ─────────────────────────────────────────────
   cover: {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { resolveBusinessOwner } from '@/lib/db'
+import { resolveBusinessOwner, getBusinessBySlug } from '@/lib/db'
 import { getAdminOctokit, getUserOctokit, GITHUB_ORG } from '@/lib/github'
 
 export const dynamic = 'force-dynamic'
@@ -49,11 +49,17 @@ export async function POST(
         { status: 400 },
       )
     }
+    // Scope the invitation to this venture's GitHub team so the person only
+    // gets access to this one repo (requires org base permissions = "None").
+    const venture = await getBusinessBySlug(params.slug)
+    const teamId = venture?._githubTeamId
+
     try {
       await getAdminOctokit().rest.orgs.createInvitation({
         org: GITHUB_ORG,
         email,
         role: 'direct_member',
+        ...(teamId ? { team_ids: [teamId] } : {}),
       })
     } catch (e: any) {
       return NextResponse.json(
@@ -61,7 +67,7 @@ export async function POST(
         { status: 500 },
       )
     }
-    return NextResponse.json({ ok: true, email })
+    return NextResponse.json({ ok: true, email, teamScoped: !!teamId })
   }
 
   // ── Username invite: direct GitHub repo collaborator ───────────────────────
