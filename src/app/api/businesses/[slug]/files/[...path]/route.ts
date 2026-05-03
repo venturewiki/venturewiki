@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { readVentureFile, readVentureFileBuffer } from '@/lib/db'
 import { mimeFromName } from '@/lib/mime'
+import { getUserOctokit } from '@/lib/github'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,8 +60,12 @@ export async function GET(
   const filePath = params.path?.join('/') ?? ''
   if (!filePath) return NextResponse.json({ error: 'missing path' }, { status: 400 })
 
+  // Viewer token enables access to private repos the signed-in user can see.
+  const session = await getServerSession(authOptions)
+  const viewerOctokit = session?.accessToken ? getUserOctokit(session.accessToken) : undefined
+
   if (req.nextUrl.searchParams.has('raw')) {
-    const file = await readVentureFileBuffer(params.slug, filePath)
+    const file = await readVentureFileBuffer(params.slug, filePath, viewerOctokit)
     if (!file) return new NextResponse('Not found', { status: 404 })
 
     // Markdown files: return a rendered HTML page instead of raw text/markdown
@@ -66,6 +73,26 @@ export async function GET(
     if (lower.endsWith('.md') || lower.endsWith('.markdown') || lower.endsWith('.mdown')) {
       const text = Buffer.from(file.bytes).toString('utf-8')
       return new NextResponse(buildMarkdownHtml(file.name, text), {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'X-Content-Type-Options': 'nosniff',
+          'Cache-Control': 'private, max-age=60',
+        },
+      })
+    }
+
+    // HTML files: inject a postMessage resize script so the parent iframe can
+    // auto-size to the content height without any fixed min-height constraint.
+    if (lower.endsWith('.html') || lower.endsWith('.htm')) {
+      const resizeScript = `<script>(function(){` +
+        `function s(){parent.postMessage({type:'vw-iframe-height',h:document.documentElement.scrollHeight},'*')}` +
+        `if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',s)}else{s()}` +
+        `new ResizeObserver(s).observe(document.documentElement)` +
+        `})()</script>`
+      let html = Buffer.from(file.bytes).toString('utf-8')
+      html = html.includes('</body>') ? html.replace('</body>', resizeScript + '\n</body>') : html + resizeScript
+      return new NextResponse(html, {
         status: 200,
         headers: {
           'Content-Type': 'text/html; charset=utf-8',
@@ -91,7 +118,7 @@ export async function GET(
     })
   }
 
-  const file = await readVentureFile(params.slug, filePath)
+  const file = await readVentureFile(params.slug, filePath, viewerOctokit)
   if (!file) return NextResponse.json({ error: 'not found' }, { status: 404 })
   return NextResponse.json(file)
 }

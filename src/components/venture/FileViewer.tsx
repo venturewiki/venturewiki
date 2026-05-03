@@ -1,5 +1,6 @@
 'use client'
 import dynamic from 'next/dynamic'
+import { useEffect, useState } from 'react'
 import { FileText, Maximize2 } from 'lucide-react'
 import { categoryFromName } from '@/lib/mime'
 import { rawFileUrl } from '@/lib/file-paths'
@@ -18,6 +19,20 @@ export function FileViewer({
   const category = categoryFromName(displayName)
   const url = rawFileUrl(slug, activeFile)
   const needsTextContent = category === 'markdown' || category === 'text'
+
+  // Auto-size the HTML iframe by listening for postMessage from the injected
+  // ResizeObserver script in the API response (allow-scripts opaque-origin sandbox).
+  const [iframeHeight, setIframeHeight] = useState(400)
+  useEffect(() => {
+    if (category !== 'html') return
+    const handler = (e: MessageEvent) => {
+      if (e.data?.type === 'vw-iframe-height' && typeof e.data.h === 'number') {
+        setIframeHeight(e.data.h + 24)
+      }
+    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [category])
 
   // For "maximize" we open the raw file URL directly in the browser,
   // letting the browser render HTML/images/PDFs/etc. natively.
@@ -64,8 +79,15 @@ export function FileViewer({
           <ReactMarkdown>{fileContent.content}</ReactMarkdown>
         </div>
       ) : category === 'html' ? (
-        // sandbox="" with no flags: scripts/forms/popups blocked, opaque origin.
-        <iframe src={url} sandbox="" className="w-full min-h-[70vh] rounded-lg bg-white border border-rule" title={displayName} />
+        // allow-scripts without allow-same-origin = opaque origin (safe).
+        // The API injects a ResizeObserver postMessage script so height is dynamic.
+        <iframe
+          src={url}
+          sandbox="allow-scripts"
+          style={{ height: iframeHeight }}
+          className="w-full rounded-lg bg-white border border-rule overflow-hidden"
+          title={displayName}
+        />
       ) : category === 'image' ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={url} alt={displayName} className="max-w-full h-auto rounded-lg mx-auto" />
