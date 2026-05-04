@@ -97,10 +97,10 @@ export default function ProfilePage() {
                 </h2>
                 <p className="text-muted text-sm">
                   {session.user.subscriptionTier === 'pro' && session.user.subscriptionStatus === 'active'
-                    ? 'Active subscription — AI venture generation enabled'
+                    ? 'Active subscription — private ventures unlocked'
                     : session.user.subscriptionTier === 'pro' && session.user.subscriptionStatus === 'past_due'
                     ? 'Payment past due — please update your billing'
-                    : 'Upgrade to unlock AI-powered venture plan generation'}
+                    : 'Upgrade to create private ventures. AI plan assistance is available to everyone via MCP.'}
                 </p>
               </div>
             </div>

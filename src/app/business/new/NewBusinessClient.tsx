@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { toast } from 'sonner'
 import yaml from 'js-yaml'
-import { ArrowLeft, Upload, FileText, Loader2 } from 'lucide-react'
+import { ArrowLeft, Upload, FileText, Loader2, Lock } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
 import { createBusiness, fetchMyOrgs, type CreateBusinessTarget } from '@/lib/api'
 
@@ -200,14 +200,36 @@ export default function NewBusinessClient() {
           </div>
 
           <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-rule/50">
-            <label className="flex items-center gap-2 cursor-pointer text-sm text-paper">
-              <input type="radio" checked={isPublic}  onChange={() => setIsPublic(true)}  className="accent-accent" />
-              🌐 Public
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer text-sm text-paper">
-              <input type="radio" checked={!isPublic} onChange={() => setIsPublic(false)} className="accent-accent" />
-              🔒 Private
-            </label>
+            {/* Force public for venturewiki-org (anonymous or org target) */}
+            {(() => {
+              const selectedTarget = ownerOptions.find(o => o.key === ownerKey)?.target
+              const forcedPublic = !session || (selectedTarget?.type === 'org' && selectedTarget?.login === 'venturewiki')
+              const isPro = session?.user?.subscriptionTier === 'pro' && session?.user?.subscriptionStatus === 'active'
+              if (forcedPublic && !isPublic) setIsPublic(true)
+              return (
+                <>
+                  <label className="flex items-center gap-2 cursor-pointer text-sm text-paper">
+                    <input type="radio" checked={isPublic} onChange={() => setIsPublic(true)} className="accent-accent" />
+                    🌐 Public
+                  </label>
+                  <label className={`flex items-center gap-2 text-sm ${forcedPublic || !isPro ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer text-paper'}`}>
+                    <input
+                      type="radio"
+                      checked={!isPublic}
+                      onChange={() => { if (!forcedPublic && isPro) setIsPublic(false) }}
+                      disabled={forcedPublic || !isPro}
+                      className="accent-accent"
+                    />
+                    🔒 Private
+                    {!isPro && !forcedPublic && (
+                      <span className="inline-flex items-center gap-1 text-xs bg-accent/20 text-accent px-1.5 py-0.5 rounded">
+                        <Lock className="w-3 h-3" /> Pro
+                      </span>
+                    )}
+                  </label>
+                </>
+              )
+            })()}
             <button onClick={onSubmit} disabled={saving || !valid} className="btn-primary ml-auto">
               {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating…</> : 'Create venture'}
             </button>
