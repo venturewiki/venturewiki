@@ -74,6 +74,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No target login resolved' }, { status: 400 })
   }
 
+  // Ventures created in the venturewiki org (including anonymous) are always public.
+  if (target.type === 'org' && target.login === GITHUB_ORG) {
+    data.isPublic = true
+  }
+
+  // Private ventures require a Pro subscription.
+  if (data.isPublic === false) {
+    const tier = session?.user?.subscriptionTier
+    const status = session?.user?.subscriptionStatus
+    if (tier !== 'pro' || status !== 'active') {
+      return NextResponse.json(
+        { error: 'Private ventures require a VentureWiki Pro subscription.' },
+        { status: 403 },
+      )
+    }
+  }
+
   try {
     const { slug, owner } = await createBusiness(data, userId, target, octokit)
 

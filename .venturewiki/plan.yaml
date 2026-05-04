@@ -83,6 +83,7 @@ productGtm:
     hosting: Railway / Vercel
     buildStage: MVP — core CRUD, auth, search, and browsing functional
     ipLayer: Open source (MIT) — the platform is open, plans are owned by their creators
+    aiLayer: MCP server (planned) — AI plan assistance available to all users via Claude/Cursor/Windsurf
   gtmChannels:
     - channel: Hacker News / Product Hunt
       tactic: 'Launch post: "We put our business plan on GitHub — here it is"'
@@ -110,8 +111,8 @@ productGtm:
       owner: Founder
       budgetPerMonth: $100
   icp: Technical founder, 25-40, building a digital product (SaaS, API, AI agent). Comfortable with GitHub. Wants structured planning without expensive tools. Values transparency and learning from others.
-  pricingModel: Freemium — Public plans free forever. Premium for private plans, AI assistance, analytics, and custom domains.
-  pricePoint: Free (public) / $9/mo creator tier / $29/mo team tier
+  pricingModel: Freemium — Public plans free forever. Pro plan unlocks private ventures.
+  pricePoint: Free (public ventures) / $19/mo Pro (private ventures)
   salesMotion: 'Product-led growth: browse -> fork -> create -> upgrade'
   timeToValue: '< 5 minutes: sign in with GitHub, fill in the cover section, publish'
   competitors:
