@@ -301,6 +301,7 @@ export interface EditRecord {
   timestamp: string      // commit date ISO
   section: string        // commit message (first line)
   summary: string        // commit message (full)
+  files?: string[]       // .venturewiki/ files touched in this commit
   diff?: string
 }
 
