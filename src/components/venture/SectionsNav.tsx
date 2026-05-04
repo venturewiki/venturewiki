@@ -319,7 +319,7 @@ function FileTreeNode({
 export function SectionsNav({
   sectionTabs, platformTabs, files, activeTab, activeFile,
   canEdit, onSelectTab, onSelectFile, onAddFile,
-  onCreateFolder, onRenameFolder, onDeleteFolder, onMoveFile,
+  onCreateFolder, onRenameFolder, onDeleteFolder, onMoveFile, onNavigate,
 }: {
   sectionTabs: NavTab[]
   platformTabs: NavTab[]
@@ -334,12 +334,16 @@ export function SectionsNav({
   onRenameFolder?: (path: string) => void
   onDeleteFolder?: (path: string) => void
   onMoveFile?: (srcPath: string, destFolder: string) => void
+  onNavigate?: () => void
 }) {
   const tree = buildTree(files)
   const allFolders = files.filter(f => f.type === 'dir').map(f => f.path)
 
+  const wrappedSelectTab = (id: string) => { onSelectTab(id); onNavigate?.() }
+  const wrappedSelectFile = (path: string) => { onSelectFile(path); onNavigate?.() }
+
   return (
-    <aside className="lg:block">
+    <aside>
       <div className="sticky top-20 space-y-4">
         <div className="infobox">
           <div className="infobox-header">Sections</div>
@@ -349,7 +353,7 @@ export function SectionsNav({
                 key={tab.id}
                 tab={tab}
                 active={!activeFile && activeTab === tab.id}
-                onClick={() => onSelectTab(tab.id)}
+                onClick={() => wrappedSelectTab(tab.id)}
               />
             ))}
             {platformTabs.length > 0 && <div className="border-t border-rule/50 my-1" />}
@@ -358,7 +362,7 @@ export function SectionsNav({
                 key={tab.id}
                 tab={tab}
                 active={!activeFile && activeTab === tab.id}
-                onClick={() => onSelectTab(tab.id)}
+                onClick={() => wrappedSelectTab(tab.id)}
               />
             ))}
 
@@ -379,7 +383,7 @@ export function SectionsNav({
                 activeFile={activeFile}
                 canEdit={canEdit}
                 allFolders={allFolders}
-                onSelectFile={onSelectFile}
+                onSelectFile={wrappedSelectFile}
                 onRenameFolder={(path) => onRenameFolder?.(path)}
                 onDeleteFolder={(path) => onDeleteFolder?.(path)}
                 onMoveFile={(src, dest) => onMoveFile?.(src, dest)}

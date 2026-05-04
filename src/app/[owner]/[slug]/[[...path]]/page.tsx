@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import {
   Eye, GitBranch, Clock, Users, ChevronRight,
-  UserPlus, ShieldCheck, HandCoins, MessageSquare,
+  UserPlus, ShieldCheck, HandCoins, MessageSquare, Menu, X,
 } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
 import { SectionYamlEditor } from '@/components/business/SectionYamlEditor'
@@ -118,6 +118,8 @@ export default function VenturePage() {
   const selectFile = (path: string) =>
     router.replace(`/${owner}/${slug}/${encodePathSegment(path)}`, { scroll: false })
 
+  const closeNavOnMobile = () => setSidebarOpen(false)
+
   const savePatch = async (patch: Partial<BusinessPlan>) => {
     if (!business) return
     const updated = { ...business, ...patch } as BusinessPlan
@@ -127,6 +129,7 @@ export default function VenturePage() {
 
   const [addFileOpen,        setAddFileOpen]        = useState(false)
   const [inviteColabOpen,    setInviteColabOpen]    = useState(false)
+  const [sidebarOpen,        setSidebarOpen]        = useState(false)
 
   const handleComment = async () => {
     if (!newComment.trim() || !session || !business) return
@@ -239,8 +242,20 @@ export default function VenturePage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Mobile sidebar toggle */}
+        <div className="lg:hidden mb-3">
+          <button
+            onClick={() => setSidebarOpen(o => !o)}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border border-rule text-paper/70 hover:text-paper hover:bg-rule/30 transition-colors"
+          >
+            {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+            {sidebarOpen ? 'Close' : 'Sections'}
+          </button>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr_300px] gap-6">
 
+          <div className={sidebarOpen ? 'block lg:block' : 'hidden lg:block'}>
           <SectionsNav
             sectionTabs={sectionTabs}
             platformTabs={platformTabs}
@@ -255,7 +270,9 @@ export default function VenturePage() {
             onRenameFolder={handleRenameFolder}
             onDeleteFolder={handleDeleteFolder}
             onMoveFile={handleMoveFile}
+            onNavigate={closeNavOnMobile}
           />
+          </div>
 
           <main className="min-w-0">
             <CoverHeader
