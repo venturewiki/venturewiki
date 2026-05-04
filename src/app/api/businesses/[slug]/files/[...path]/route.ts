@@ -47,6 +47,9 @@ function buildMarkdownHtml(name: string, content: string): string {
       var md = ${safeContent};
       var dirty = marked.parse(md, { gfm: true, breaks: false });
       document.getElementById('content').innerHTML = DOMPurify.sanitize(dirty);
+      function s(){parent.postMessage({type:'vw-iframe-height',h:document.documentElement.scrollHeight},'*')}
+      s();
+      new ResizeObserver(s).observe(document.documentElement);
     })();
   </script>
 </body>

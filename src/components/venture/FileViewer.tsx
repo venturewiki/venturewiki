@@ -1,11 +1,8 @@
 'use client'
-import dynamic from 'next/dynamic'
 import { useEffect, useState } from 'react'
 import { FileText, Maximize2 } from 'lucide-react'
 import { categoryFromName } from '@/lib/mime'
 import { rawFileUrl } from '@/lib/file-paths'
-
-const ReactMarkdown = dynamic(() => import('react-markdown'), { ssr: false })
 
 export function FileViewer({
   slug, activeFile, fileContent, fileLoading,
@@ -18,13 +15,13 @@ export function FileViewer({
   const displayName = fileContent?.name || activeFile.split('/').pop() || activeFile
   const category = categoryFromName(displayName)
   const url = rawFileUrl(slug, activeFile)
-  const needsTextContent = category === 'markdown' || category === 'text'
+  const needsTextContent = category === 'text'
 
-  // Auto-size the HTML iframe by listening for postMessage from the injected
-  // ResizeObserver script in the API response (allow-scripts opaque-origin sandbox).
+  // Auto-size markdown and HTML iframes by listening for postMessage from the
+  // injected ResizeObserver script in the API response (allow-scripts opaque-origin sandbox).
   const [iframeHeight, setIframeHeight] = useState(400)
   useEffect(() => {
-    if (category !== 'html') return
+    if (category !== 'html' && category !== 'markdown') return
     const handler = (e: MessageEvent) => {
       if (e.data?.type === 'vw-iframe-height' && typeof e.data.h === 'number') {
         setIframeHeight(e.data.h + 24)
@@ -74,10 +71,16 @@ export function FileViewer({
 
       {needsTextContent && fileLoading ? (
         <div className="h-32 shimmer rounded-lg" />
-      ) : category === 'markdown' && fileContent ? (
-        <div className="prose prose-invert prose-sm max-w-none">
-          <ReactMarkdown>{fileContent.content}</ReactMarkdown>
-        </div>
+      ) : category === 'markdown' ? (
+        // Render markdown via the raw API (GFM + DOMPurify + github-markdown-css),
+        // same engine as the standalone ?raw=1 URL. allow-scripts opaque-origin sandbox is safe.
+        <iframe
+          src={url}
+          sandbox="allow-scripts"
+          style={{ height: iframeHeight }}
+          className="w-full rounded-lg border border-rule overflow-hidden"
+          title={displayName}
+        />
       ) : category === 'html' ? (
         // allow-scripts without allow-same-origin = opaque origin (safe).
         // The API injects a ResizeObserver postMessage script so height is dynamic.

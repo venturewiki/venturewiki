@@ -102,7 +102,7 @@ export default function VenturePage() {
     // render directly via the raw URL — no JSON fetch required.
     const fileName = activeFile.split('/').pop() || activeFile
     const cat = categoryFromName(fileName)
-    if (cat !== 'markdown' && cat !== 'text') { setFileContent(null); return }
+    if (cat !== 'text') { setFileContent(null); return }
     setFileLoading(true)
     fetchVentureFile(business.id, activeFile)
       .then(setFileContent)
