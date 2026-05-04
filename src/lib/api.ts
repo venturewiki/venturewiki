@@ -334,6 +334,35 @@ export async function getCollaboratorSecurity(slug: string): Promise<CollabSecur
   )
 }
 
+export interface CollaboratorsData {
+  collaborators: Array<{
+    login: string
+    avatar_url: string
+    html_url: string
+    permissions: { pull: boolean; push: boolean; admin: boolean }
+    role_name: string
+  }>
+  invitations: Array<{
+    id: number
+    invitee: { login: string; avatar_url: string; html_url: string }
+    permissions: string
+    created_at: string
+  }>
+  teams: Array<{
+    name: string
+    slug: string
+    description: string
+    permission: string
+  }>
+}
+
+export async function fetchCollaboratorsData(slug: string): Promise<CollaboratorsData | null> {
+  return apiFetch<CollaboratorsData>(`/api/businesses/${enc(slug)}/collaborators/list`, {
+    errorLabel: 'Failed to fetch collaborators',
+    optional: true,
+  })
+}
+
 // ── Stripe ─────────────────────────────────────────────────────────────────
 
 export async function createCheckoutSession(plan: 'monthly' | 'yearly'): Promise<string> {

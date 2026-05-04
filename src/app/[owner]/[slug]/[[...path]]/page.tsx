@@ -33,13 +33,14 @@ import { HistoryTab } from '@/components/venture/HistoryTab'
 import { DiscussionTab } from '@/components/venture/DiscussionTab'
 import { AddFileModal } from '@/components/venture/AddFileModal'
 import InviteCollaboratorModal from '@/components/venture/InviteCollaboratorModal'
+import { CollaboratorsTab } from '@/components/venture/CollaboratorsTab'
 import type { BusinessPlan, EditRecord, Comment, RoleCandidate, Validation, InvestmentInterest, VentureValue } from '@/types'
 import type { VentureFile } from '@/lib/api'
 
 // Platform tabs back onto separate yaml files (candidates/validations/…) plus
 // the discussion + git-history surfaces. Plan-section tabs are derived from
 // the keys present in `.venturewiki/plan.yaml`.
-const PLATFORM_TAB_IDS = ['candidates', 'validations', 'invest', 'history', 'discuss'] as const
+const PLATFORM_TAB_IDS = ['candidates', 'validations', 'invest', 'history', 'discuss', 'collaborators'] as const
 
 export default function VenturePage() {
   // owner is the GitHub org/user login — included in the URL so slugs are
@@ -223,6 +224,7 @@ export default function VenturePage() {
     { id: 'invest',      label: `Invest (${investments.length})`,      icon: HandCoins },
     { id: 'history',     label: `History (${edits.length})`,           icon: GitBranch },
     { id: 'discuss',     label: `Discussion (${comments.length})`,     icon: MessageSquare },
+    { id: 'collaborators', label: 'Collaborators',                     icon: Users },
   ]
 
   return (
@@ -289,14 +291,6 @@ export default function VenturePage() {
               <span className="flex items-center gap-1"><GitBranch className="w-3.5 h-3.5" />{formatNumber(business.editCount)} edits</span>
               <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />Updated {formatRelativeTime(business.updatedAt)}</span>
               <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />{business.contributors?.length || 1} contributor{(business.contributors?.length || 1) > 1 ? 's' : ''}</span>
-              {canEdit && (
-                <button
-                  className="ml-auto flex items-center gap-1 text-xs text-accent hover:text-accent/80 transition-colors"
-                  onClick={() => setInviteColabOpen(true)}
-                >
-                  <UserPlus className="w-3.5 h-3.5" /> Invite collaborator
-                </button>
-              )}
             </div>
 
             {activeFile && (
@@ -366,6 +360,13 @@ export default function VenturePage() {
                 value={newComment}
                 onChange={setNewComment}
                 onPost={handleComment}
+              />
+            )}
+            {!activeFile && activeTab === 'collaborators' && (
+              <CollaboratorsTab
+                businessId={business.id}
+                canEdit={canEdit}
+                onInvite={() => setInviteColabOpen(true)}
               />
             )}
           </main>
