@@ -34,8 +34,6 @@ RUN addgroup --system --gid 1001 nodejs \
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-# Runtime templates (e.g. default-plan.yaml) read via fs.readFileSync
-COPY --from=builder --chown=nextjs:nodejs /app/templates ./templates
 
 USER nextjs
 

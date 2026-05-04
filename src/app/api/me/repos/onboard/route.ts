@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getUserOctokit, getRepoContent, putRepoContent } from '@/lib/github'
-import { defaultPlanYaml } from '@/lib/db/default-plan'
+import { scaffoldVentureFiles } from '@/lib/db/default-plan'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,16 +40,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e?.message || 'Repo not found or not accessible' }, { status: 404 })
   }
 
-  const planYaml = defaultPlanYaml({ owner, name, description, userId: session.user.id })
+  const templateFiles = await scaffoldVentureFiles({ owner, name, description, userId: session.user.id })
+  if (templateFiles.length === 0) {
+    return NextResponse.json({ error: 'Could not fetch venture template. Please try again.' }, { status: 502 })
+  }
 
   try {
-    await putRepoContent(octokit, {
-      owner,
-      repo: name,
-      path: '.venturewiki/plan.yaml',
-      message: 'Onboard to VentureWiki',
-      content: encode(planYaml),
-    })
+    // Write every file from the template's .venturewiki/ folder into the repo
+    for (const file of templateFiles) {
+      await putRepoContent(octokit, {
+        owner,
+        repo: name,
+        path: `.venturewiki/${file.path}`,
+        message: 'Onboard to VentureWiki',
+        content: encode(file.content),
+      })
+    }
 
     // Best-effort: add `venturewiki` topic
     try {
@@ -58,7 +64,7 @@ export async function POST(req: NextRequest) {
       await octokit.rest.repos.replaceAllTopics({ owner, repo: name, names: topics })
     } catch { /* topics are optional */ }
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || 'Failed to write plan.yaml' }, { status: 500 })
+    return NextResponse.json({ error: e?.message || 'Failed to write venture files' }, { status: 500 })
   }
 
   return NextResponse.json({

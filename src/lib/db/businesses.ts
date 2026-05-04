@@ -5,7 +5,7 @@ import type { BusinessPlan, EditRecord } from '@/types'
 import { resolveBusinessOwner, pickWriteOctokit } from './owner'
 import { dumpYaml, encodeContent, readRepoYaml, writeRepoFile, writeRepoYaml } from './yaml'
 import { planToTopics } from './readme'
-import { defaultPlanYaml } from './default-plan'
+import { scaffoldVentureFiles } from './default-plan'
 
 const PLAN_PATH = '.venturewiki/plan.yaml'
 
@@ -181,22 +181,25 @@ export async function getBusinessBySlug(
       const topics: string[] = repo.topics || []
       if (!topics.includes('venturewiki')) return null
 
-      // The repo is tagged as a VW venture — create the missing plan.yaml.
+      // The repo is tagged as a VW venture — copy the full .venturewiki template.
       const writeOctokit = pickWriteOctokit(owner, viewerOctokit)
-      const planYaml = defaultPlanYaml({
+      const templateFiles = await scaffoldVentureFiles({
         owner,
         name: slug,
         description: repo.description || '',
         userId: 'system',
       })
+      if (templateFiles.length === 0) return null
       try {
-        await putRepoContent(writeOctokit, {
-          owner,
-          repo: slug,
-          path: PLAN_PATH,
-          message: '📋 Auto-scaffold plan.yaml (venturewiki topic detected)',
-          content: encodeContent(planYaml),
-        })
+        for (const file of templateFiles) {
+          await putRepoContent(writeOctokit, {
+            owner,
+            repo: slug,
+            path: `.venturewiki/${file.path}`,
+            message: '📋 Auto-scaffold .venturewiki (venturewiki topic detected)',
+            content: encodeContent(file.content),
+          })
+        }
         invalidateCache(`plan:${slug}`)
         plan = await readPlan(slug, viewerOctokit)
       } catch {
