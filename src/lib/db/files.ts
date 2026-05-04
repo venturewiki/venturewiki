@@ -177,8 +177,19 @@ export async function readVentureFileBuffer(
     const { data } = await getRepoContent(viewerOctokit ?? getPublicOctokit(), {
       owner, repo: slug, path: `.venturewiki/${filePath}`,
     })
-    if ('content' in data && data.type === 'file') {
+    if (!('content' in data && data.type === 'file')) return null
+
+    // GitHub API only returns inline base64 content for files ≤ 1 MB.
+    // For larger files it returns content: "" with encoding: "none" but
+    // provides a download_url (which includes a temp token for private repos).
+    const fileData = data as typeof data & { download_url?: string | null }
+    if (data.content) {
       return { name: data.name, bytes: Buffer.from(data.content, 'base64') }
+    }
+    if (fileData.download_url) {
+      const res = await fetch(fileData.download_url)
+      if (!res.ok) return null
+      return { name: data.name, bytes: Buffer.from(await res.arrayBuffer()) }
     }
     return null
   } catch {
