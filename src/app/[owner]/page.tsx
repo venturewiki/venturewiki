@@ -75,7 +75,7 @@ async function getOwnerVentures(owner: string): Promise<BusinessPlan[]> {
   )
 
   const result = plans.filter((p): p is BusinessPlan => p !== null)
-  setCache(cacheKey, result, 60_000)
+  setCache(cacheKey, result)
   return result
 }
 
