@@ -74,6 +74,16 @@ export default function NewBusinessClient() {
     }).catch(() => {})
   }, [session?.user?.login])
 
+  // Derived visibility state — computed at component level, not inside render.
+  const selectedTarget = ownerOptions.find(o => o.key === ownerKey)?.target
+  const forcedPublic = !session || (selectedTarget?.type === 'org' && selectedTarget?.login === 'venturewiki')
+  const isPro = session?.user?.subscriptionTier === 'pro' && session?.user?.subscriptionStatus === 'active'
+
+  // Keep isPublic in sync when the target forces it to true.
+  useEffect(() => {
+    if (forcedPublic) setIsPublic(true)
+  }, [forcedPublic])
+
   // Live YAML parse → validation hint.
   let parsed: any = null
   let parseError: string | null = null
@@ -200,36 +210,38 @@ export default function NewBusinessClient() {
           </div>
 
           <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-rule/50">
-            {/* Force public for venturewiki-org (anonymous or org target) */}
-            {(() => {
-              const selectedTarget = ownerOptions.find(o => o.key === ownerKey)?.target
-              const forcedPublic = !session || (selectedTarget?.type === 'org' && selectedTarget?.login === 'venturewiki')
-              const isPro = session?.user?.subscriptionTier === 'pro' && session?.user?.subscriptionStatus === 'active'
-              if (forcedPublic && !isPublic) setIsPublic(true)
-              return (
-                <>
-                  <label className="flex items-center gap-2 cursor-pointer text-sm text-paper">
-                    <input type="radio" checked={isPublic} onChange={() => setIsPublic(true)} className="accent-accent" />
-                    🌐 Public
-                  </label>
-                  <label className={`flex items-center gap-2 text-sm ${forcedPublic || !isPro ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer text-paper'}`}>
-                    <input
-                      type="radio"
-                      checked={!isPublic}
-                      onChange={() => { if (!forcedPublic && isPro) setIsPublic(false) }}
-                      disabled={forcedPublic || !isPro}
-                      className="accent-accent"
-                    />
-                    🔒 Private
-                    {!isPro && !forcedPublic && (
-                      <span className="inline-flex items-center gap-1 text-xs bg-accent/20 text-accent px-1.5 py-0.5 rounded">
-                        <Lock className="w-3 h-3" /> Pro
-                      </span>
-                    )}
-                  </label>
-                </>
-              )
-            })()}
+            <label className="flex items-center gap-2 cursor-pointer text-sm text-paper">
+              <input type="radio" checked={isPublic} onChange={() => setIsPublic(true)} className="accent-accent" />
+              🌐 Public
+            </label>
+            <label className={`flex items-center gap-2 text-sm ${forcedPublic || !isPro ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer text-paper'}`}>
+              <input
+                type="radio"
+                checked={!isPublic}
+                onChange={() => { if (!forcedPublic && isPro) setIsPublic(false) }}
+                disabled={forcedPublic || !isPro}
+                className="accent-accent"
+              />
+              🔒 Private
+              {session && !isPro && !forcedPublic && (
+                <span className="inline-flex items-center gap-1 text-xs bg-accent/20 text-accent px-1.5 py-0.5 rounded">
+                  <Lock className="w-3 h-3" /> Pro
+                </span>
+              )}
+            </label>
+            {/* Upgrade / sign-in prompt */}
+            {!session ? (
+              <p className="w-full text-xs text-muted">
+                <a href="/api/auth/signin" className="text-accent hover:underline">Sign in</a> and upgrade to Pro to create private ventures.
+              </p>
+            ) : !isPro && !forcedPublic ? (
+              <p className="w-full text-xs text-muted">
+                Private ventures require a Pro subscription.{' '}
+                <a href="/profile" className="text-accent hover:underline font-medium">Upgrade to Pro →</a>
+              </p>
+            ) : forcedPublic && session ? (
+              <p className="w-full text-xs text-muted">Org ventures are always public.</p>
+            ) : null}
             <button onClick={onSubmit} disabled={saving || !valid} className="btn-primary ml-auto">
               {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating…</> : 'Create venture'}
             </button>
