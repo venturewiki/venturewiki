@@ -1,0 +1,197 @@
+id: venturewiki
+slug: venturewiki
+owner: venturewiki
+createdAt: "2025-01-01T00:00:00.000Z"
+updatedAt: "2026-05-03T00:00:00.000Z"
+createdBy: venturewiki
+contributors:
+  - venturewiki
+viewCount: 0
+editCount: 0
+isPublic: true
+isArchived: false
+isFeatured: true
+
+cover:
+  companyName: VentureWiki
+  tagline: The open encyclopedia for digital business plans
+  mission: >
+    Give every founder a structured, collaborative, GitHub-backed workspace to
+    document, iterate, and share their business plan — openly, like a wiki.
+  vision: >
+    A world where every digital business idea is documented, peer-reviewed, and
+    discoverable — the Wikipedia of venture intelligence.
+  productType: web-app
+  industryVertical: Developer Tools / SaaS
+  stage: mvp
+  fundingStage: bootstrapped
+  headquarters: Remote
+  legalStructure: LLC
+  websiteUrl: https://venturewiki.io
+  logoEmoji: "\U0001F4D6"
+  accentColor: "#f97316"
+  version: "1.0"
+  preparedBy: venturewiki
+  fundingSought: ""
+  tractionHighlights:
+    revenue: ""
+    users: ""
+    partnerships: ""
+    press: ""
+
+problemSolution:
+  corePainPoint: >
+    Founders lack a structured, version-controlled, collaborative workspace for
+    their business plan. Documents rot in Google Docs, pitch decks go stale, and
+    there is no public record of a venture's evolution.
+  painDimensions:
+    who: Early-stage founders, solo operators, and small startup teams
+    frequency: Every time they update strategy, seek feedback, or pitch investors
+    currentWorkarounds: Google Docs, Notion pages, static PDFs — all siloed and unversioned
+    costOfProblem: Wasted time, inconsistent messaging, zero discoverability
+    urgencyLevel: Medium — painful but founders work around it
+  solutionOneLiner: >
+    VentureWiki is GitHub-backed, wiki-style venture documentation with
+    structured plan templates, file vaults, and AI-ready APIs.
+  features:
+    - feature: GitHub-as-database
+      benefit: Every edit is a git commit — full history, branches, and diffs for free
+      techLayer: GitHub REST API + Octokit
+    - feature: Structured plan.yaml template
+      benefit: Consistent 5-page schema (Cover, Problem/Solution, Product/GTM, Team/Roadmap, Funding Ask)
+      techLayer: YAML + Next.js inline editor
+    - feature: File vault (.venturewiki/)
+      benefit: Store decks, images, reports and render them inline — no third-party storage
+      techLayer: GitHub repo contents API
+    - feature: MCP Server (planned)
+      benefit: AI agents can read, write, and reason over venture data natively
+      techLayer: Model Context Protocol + Octokit
+  unfairAdvantage: >
+    Uses GitHub as the database — zero infrastructure cost, free git history,
+    built-in access control, and seamless developer adoption.
+  market:
+    tam: Global startup tooling market
+    tamSize: $12B
+    tamSource: Estimate
+    sam: English-language early-stage founders using GitHub
+    samSize: $800M
+    samSource: Estimate
+    som: Bootstrapped cohort in year 1
+    somSize: $2M
+    somSource: Internal projection
+
+productGtm:
+  techStack:
+    productType: web-app
+    frontend: Next.js 14 App Router + Tailwind CSS
+    backend: Next.js API Routes (Edge + Node)
+    aiLayer: MCP Server (planned) + OpenAI-compatible endpoints
+    dataStorage: GitHub repos (plan.yaml + .venturewiki/ files)
+    authPayments: NextAuth.js (GitHub OAuth) + Stripe
+    hosting: Railway (Docker / Next.js standalone)
+    buildStage: Live MVP
+    ipLayer: Open-source core; platform features gated by subscription
+  gtmChannels:
+    - channel: GitHub
+      tactic: Open-source repo with venturewiki topic — organic discovery
+      goal90Day: 50 stars
+      owner: venturewiki
+      budgetPerMonth: "$0"
+    - channel: Product Hunt
+      tactic: Launch when file vault and MCP server are stable
+      goal90Day: Top 5 of the day
+      owner: venturewiki
+      budgetPerMonth: "$0"
+    - channel: Twitter / X
+      tactic: Build-in-public thread series
+      goal90Day: 500 followers
+      owner: venturewiki
+      budgetPerMonth: "$0"
+  icp: Solo founders and small teams who live in GitHub and want structured, shareable business plans
+  pricingModel: Freemium — free for public ventures, Pro ($9/mo) for private + advanced features
+  pricePoint: $9/month or $90/year
+  salesMotion: Product-led growth
+  timeToValue: Under 5 minutes — sign in with GitHub, scaffold a plan, publish
+  competitors:
+    - dimension: Version control
+      yourProduct: Native git history via GitHub
+      competitorA: Notion (none)
+      competitorB: Google Docs (basic)
+      competitorC: Coda (none)
+    - dimension: Structured schema
+      yourProduct: Opinionated 5-page YAML template
+      competitorA: Notion (freeform)
+      competitorB: Google Docs (freeform)
+      competitorC: Coda (freeform)
+    - dimension: AI-ready API
+      yourProduct: MCP Server (planned)
+      competitorA: None
+      competitorB: None
+      competitorC: None
+
+teamRoadmap:
+  founders:
+    - name: venturewiki
+      role: Founder / Engineer
+      background: Full-stack, product, and infrastructure
+      commitment: Full-time
+      equity: "100%"
+  advisors: ""
+  openRoles: ""
+  kpis:
+    - metric: Ventures created
+      current: "0"
+      target3mo: "50"
+      target12mo: "500"
+      notes: ""
+    - metric: Monthly active users
+      current: "0"
+      target3mo: "100"
+      target12mo: "1000"
+      notes: ""
+  milestones:
+    - milestone: Public launch
+      owner: venturewiki
+      targetDate: "2026-Q2"
+      budget: "$0"
+      successCriteria: 50 ventures created, app stable
+      status: in-progress
+    - milestone: MCP Server MVP
+      owner: venturewiki
+      targetDate: "2026-Q3"
+      budget: "$0"
+      successCriteria: Claude Desktop can read and write venture plans
+      status: not-started
+    - milestone: Pro tier launch
+      owner: venturewiki
+      targetDate: "2026-Q3"
+      budget: "$0"
+      successCriteria: First paying subscriber
+      status: not-started
+
+fundingAsk:
+  totalRaise: ""
+  instrument: ""
+  valuationCapTerms: ""
+  targetCloseDate: ""
+  askOneLiner: ""
+  useOfFunds: []
+  elevatorPitch:
+    hook: >
+      What if your business plan lived on GitHub — versioned, collaborative,
+      and readable by AI agents?
+    companyIntro: >
+      VentureWiki is a structured, wiki-style workspace for digital business
+      plans, backed by GitHub as the database.
+    tractionProof: Live MVP at venturewiki.io. Bootstrapped.
+    marketSize: $800M SAM of GitHub-native early-stage founders.
+    askAndUse: Bootstrapped — no ask at this stage.
+    cta: Try it at venturewiki.io — sign in with GitHub and publish your plan in minutes.
+  risks:
+    - risk: GitHub API rate limits at scale
+      likelihood: medium
+      mitigation: Caching layer + GitHub App token rotation
+    - risk: Developer-only audience too narrow
+      likelihood: medium
+      mitigation: No-code YAML editor and guided plan wizard planned
+  financials: {}
