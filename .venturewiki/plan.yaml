@@ -1,197 +1,305 @@
 id: venturewiki
 slug: venturewiki
-owner: venturewiki
-createdAt: "2025-01-01T00:00:00.000Z"
-updatedAt: "2026-05-03T00:00:00.000Z"
-createdBy: venturewiki
+createdBy: seed
 contributors:
-  - venturewiki
+  - seed
 viewCount: 0
 editCount: 0
 isPublic: true
 isArchived: false
 isFeatured: true
-
+createdAt: '2026-04-05T04:30:25.436Z'
+updatedAt: '2026-04-05T04:30:25.436Z'
 cover:
   companyName: VentureWiki
   tagline: The open encyclopedia for digital business plans
-  mission: >
-    Give every founder a structured, collaborative, GitHub-backed workspace to
-    document, iterate, and share their business plan — openly, like a wiki.
-  vision: >
-    A world where every digital business idea is documented, peer-reviewed, and
-    discoverable — the Wikipedia of venture intelligence.
+  mission: Make business planning transparent, collaborative, and accessible to every digital founder on the planet.
+  vision: Become the Wikipedia of business plans ÔÇö a living, version-controlled reference that anyone can learn from, contribute to, or fork.
   productType: web-app
-  industryVertical: Developer Tools / SaaS
+  industryVertical: SaaS / Developer Tools
   stage: mvp
   fundingStage: bootstrapped
-  headquarters: Remote
-  legalStructure: LLC
+  headquarters: Remote (US/EU)
+  legalStructure: Delaware C-Corp (planned)
   websiteUrl: https://venturewiki.io
-  logoEmoji: "\U0001F4D6"
-  accentColor: "#f97316"
-  version: "1.0"
-  preparedBy: venturewiki
-  fundingSought: ""
+  logoEmoji: ­ƒôû
+  accentColor: '#E8622A'
+  version: '1.0'
+  preparedBy: VentureWiki Founding Team
+  fundingSought: $250K pre-seed
   tractionHighlights:
-    revenue: ""
-    users: ""
-    partnerships: ""
-    press: ""
-
+    revenue: Pre-revenue ÔÇö free public beta
+    users: Open-source, community-driven
+    partnerships: Built on GitHub infrastructure
+    press: 'Self-documenting: our own plan is on VentureWiki'
 problemSolution:
-  corePainPoint: >
-    Founders lack a structured, version-controlled, collaborative workspace for
-    their business plan. Documents rot in Google Docs, pitch decks go stale, and
-    there is no public record of a venture's evolution.
+  corePainPoint: Business plans are locked in closed PDFs, stale slide decks, and expensive SaaS tools ÔÇö they die the moment they're created. Founders can't learn from real examples, investors can't compare, and the knowledge never compounds.
   painDimensions:
-    who: Early-stage founders, solo operators, and small startup teams
-    frequency: Every time they update strategy, seek feedback, or pitch investors
-    currentWorkarounds: Google Docs, Notion pages, static PDFs — all siloed and unversioned
-    costOfProblem: Wasted time, inconsistent messaging, zero discoverability
-    urgencyLevel: Medium — painful but founders work around it
-  solutionOneLiner: >
-    VentureWiki is GitHub-backed, wiki-style venture documentation with
-    structured plan templates, file vaults, and AI-ready APIs.
+    who: First-time digital founders, indie hackers, bootstrap entrepreneurs, accelerator cohorts
+    frequency: Every new venture (millions per year globally)
+    currentWorkarounds: LivePlan ($20/mo locked), Google Docs (unstructured), pitch decks (incomplete), Y Combinator essays (not actionable templates)
+    costOfProblem: Founders waste 40-80 hours writing plans from scratch. Investors see inconsistent formats. Knowledge never compounds.
+    urgencyLevel: High ÔÇö AI is creating a new wave of micro-SaaS founders who need lightweight planning tools
+  solutionOneLiner: VentureWiki is an open, version-controlled wiki where every digital business plan lives as a GitHub repo ÔÇö structured, forkable, and always up to date.
   features:
-    - feature: GitHub-as-database
-      benefit: Every edit is a git commit — full history, branches, and diffs for free
-      techLayer: GitHub REST API + Octokit
-    - feature: Structured plan.yaml template
-      benefit: Consistent 5-page schema (Cover, Problem/Solution, Product/GTM, Team/Roadmap, Funding Ask)
-      techLayer: YAML + Next.js inline editor
-    - feature: File vault (.venturewiki/)
-      benefit: Store decks, images, reports and render them inline — no third-party storage
-      techLayer: GitHub repo contents API
-    - feature: MCP Server (planned)
-      benefit: AI agents can read, write, and reason over venture data natively
-      techLayer: Model Context Protocol + Octokit
-  unfairAdvantage: >
-    Uses GitHub as the database — zero infrastructure cost, free git history,
-    built-in access control, and seamless developer adoption.
+    - feature: Structured 5-page business plan template
+      benefit: Consistent, comparable format across all plans
+      techLayer: React form + JSON schema validation
+    - feature: GitHub-backed storage
+      benefit: Full version history, forking, pull requests ÔÇö built on infrastructure developers already know
+      techLayer: Octokit + GitHub API (repos, commits, issues)
+    - feature: Public-by-default directory
+      benefit: Anyone can browse, learn from, and fork real business plans
+      techLayer: GitHub Search API + Topics for filtering
+    - feature: Community discussion via GitHub Issues
+      benefit: Feedback and Q&A without building a custom comment system
+      techLayer: GitHub Issues API as discussion threads
+    - feature: Auto-generated README
+      benefit: Every plan is readable directly on GitHub without our UI
+      techLayer: Markdown generation from plan.yaml
+    - feature: Edit history from git commits
+      benefit: See how a business plan evolved over time ÔÇö pivots, growth, strategy shifts
+      techLayer: Git log on .venturewiki/plan.yaml
+  unfairAdvantage: 'Network effects: every plan added makes VentureWiki more valuable. GitHub gives us free hosting, CDN, version control, and developer trust. No other business plan tool builds on open infrastructure.'
   market:
-    tam: Global startup tooling market
-    tamSize: $12B
-    tamSource: Estimate
-    sam: English-language early-stage founders using GitHub
-    samSize: $800M
-    samSource: Estimate
-    som: Bootstrapped cohort in year 1
-    somSize: $2M
-    somSource: Internal projection
-
+    tam: Global business planning software market
+    tamSize: $1.2B
+    tamSource: Grand View Research 2025
+    sam: Digital-first founders using SaaS/developer tools
+    samSize: $320M
+    samSource: 'Subset of TAM: ~27% digital-first ventures x planning tool adoption'
+    som: English-speaking indie hackers and startup founders in Y1
+    somSize: $8M
+    somSource: Est. 100K founders x $80/yr avg willingness-to-pay for premium features
+  whyNow: 'Three converging trends: (1) AI is exploding the number of micro-SaaS founders, (2) GitHub Copilot/Codex made developers comfortable with AI-assisted workflows, (3) the "build in public" movement means founders want to share plans openly.'
 productGtm:
   techStack:
-    productType: web-app
-    frontend: Next.js 14 App Router + Tailwind CSS
-    backend: Next.js API Routes (Edge + Node)
-    aiLayer: MCP Server (planned) + OpenAI-compatible endpoints
-    dataStorage: GitHub repos (plan.yaml + .venturewiki/ files)
-    authPayments: NextAuth.js (GitHub OAuth) + Stripe
-    hosting: Railway (Docker / Next.js standalone)
-    buildStage: Live MVP
-    ipLayer: Open-source core; platform features gated by subscription
+    productType: Web Application (Next.js)
+    frontend: Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS
+    backend: Next.js API routes, NextAuth.js v4
+    aiLayer: 'Planned: GPT-4o for plan generation assistance, embeddings for search'
+    dataStorage: GitHub repos via Octokit (1 repo per plan, plan.yaml + README.md)
+    authPayments: GitHub OAuth via NextAuth, Stripe (planned for premium)
+    hosting: Railway / Vercel
+    buildStage: MVP ÔÇö core CRUD, auth, search, and browsing functional
+    ipLayer: Open source (MIT) ÔÇö the platform is open, plans are owned by their creators
   gtmChannels:
-    - channel: GitHub
-      tactic: Open-source repo with venturewiki topic — organic discovery
-      goal90Day: 50 stars
-      owner: venturewiki
-      budgetPerMonth: "$0"
-    - channel: Product Hunt
-      tactic: Launch when file vault and MCP server are stable
-      goal90Day: Top 5 of the day
-      owner: venturewiki
-      budgetPerMonth: "$0"
+    - channel: Hacker News / Product Hunt
+      tactic: 'Launch post: "We put our business plan on GitHub ÔÇö here it is"'
+      goal90Day: 5,000 unique visitors, 200 signups
+      owner: Founder
+      budgetPerMonth: $0
     - channel: Twitter / X
-      tactic: Build-in-public thread series
-      goal90Day: 500 followers
-      owner: venturewiki
-      budgetPerMonth: "$0"
-  icp: Solo founders and small teams who live in GitHub and want structured, shareable business plans
-  pricingModel: Freemium — free for public ventures, Pro ($9/mo) for private + advanced features
-  pricePoint: $9/month or $90/year
-  salesMotion: Product-led growth
-  timeToValue: Under 5 minutes — sign in with GitHub, scaffold a plan, publish
+      tactic: Build-in-public thread series, share plan updates weekly
+      goal90Day: 2,000 followers, 50 plans created
+      owner: Founder
+      budgetPerMonth: $0
+    - channel: Dev communities
+      tactic: Post on r/SideProject, IndieHackers, dev.to ÔÇö "fork this business plan template"
+      goal90Day: 100 forks of template plan
+      owner: Founder
+      budgetPerMonth: $0
+    - channel: GitHub organic
+      tactic: Star-worthy repos -> GitHub Trending -> organic discovery
+      goal90Day: 500 GitHub stars on venturewiki org
+      owner: Community
+      budgetPerMonth: $0
+    - channel: Accelerator partnerships
+      tactic: Offer VentureWiki as default plan tool for incubator cohorts
+      goal90Day: 2 accelerator pilots
+      owner: Founder
+      budgetPerMonth: $100
+  icp: Technical founder, 25-40, building a digital product (SaaS, API, AI agent). Comfortable with GitHub. Wants structured planning without expensive tools. Values transparency and learning from others.
+  pricingModel: Freemium ÔÇö Public plans free forever. Premium for private plans, AI assistance, analytics, and custom domains.
+  pricePoint: Free (public) / $9/mo creator tier / $29/mo team tier
+  salesMotion: 'Product-led growth: browse -> fork -> create -> upgrade'
+  timeToValue: '< 5 minutes: sign in with GitHub, fill in the cover section, publish'
   competitors:
+    - dimension: Price
+      yourProduct: Free (public plans)
+      competitorA: $20/mo (LivePlan)
+      competitorB: Free (Google Docs)
+      competitorC: $0-$50/mo (Notion)
     - dimension: Version control
-      yourProduct: Native git history via GitHub
-      competitorA: Notion (none)
-      competitorB: Google Docs (basic)
-      competitorC: Coda (none)
-    - dimension: Structured schema
-      yourProduct: Opinionated 5-page YAML template
-      competitorA: Notion (freeform)
-      competitorB: Google Docs (freeform)
-      competitorC: Coda (freeform)
-    - dimension: AI-ready API
-      yourProduct: MCP Server (planned)
+      yourProduct: Full git history
       competitorA: None
+      competitorB: Basic revision history
+      competitorC: Page history
+    - dimension: Structured template
+      yourProduct: 5-page structured schema
+      competitorA: SBA-aligned wizard
+      competitorB: Blank document
+      competitorC: User-built templates
+    - dimension: Open / forkable
+      yourProduct: Yes ÔÇö public repos, MIT
+      competitorA: No ÔÇö proprietary
+      competitorB: Shareable but not forkable
+      competitorC: Duplicatable
+    - dimension: Developer-friendly
+      yourProduct: GitHub-native, JSON/API
+      competitorA: 'No'
+      competitorB: 'No'
+      competitorC: API available
+    - dimension: Community / discovery
+      yourProduct: Public directory + search
+      competitorA: Sample plans (read-only)
       competitorB: None
-      competitorC: None
-
+      competitorC: Template gallery
 teamRoadmap:
   founders:
-    - name: venturewiki
-      role: Founder / Engineer
-      background: Full-stack, product, and infrastructure
+    - name: VentureWiki Founder
+      role: CEO / Full-Stack Engineer
+      background: Serial entrepreneur, 10+ years in SaaS and developer tools. Previously built and exited a B2B analytics platform.
       commitment: Full-time
-      equity: "100%"
-  advisors: ""
-  openRoles: ""
+      equity: 100% (pre-funding)
+  advisors: 'Seeking: (1) ex-YC partner for accelerator channel, (2) GitHub ecosystem expert, (3) fintech/business planning domain expert'
+  openRoles: Co-founder/CTO (equity-based), Community Manager (part-time), Content Creator (contract)
   kpis:
-    - metric: Ventures created
-      current: "0"
-      target3mo: "50"
-      target12mo: "500"
-      notes: ""
+    - metric: Published plans
+      current: '1'
+      target3mo: '100'
+      target12mo: 5,000
+      notes: Core growth metric ÔÇö every plan adds network value
     - metric: Monthly active users
-      current: "0"
-      target3mo: "100"
-      target12mo: "1000"
-      notes: ""
+      current: '0'
+      target3mo: '500'
+      target12mo: 10,000
+      notes: Browse + create + edit activity
+    - metric: GitHub stars (org)
+      current: '0'
+      target3mo: '500'
+      target12mo: 5,000
+      notes: Developer credibility signal
+    - metric: Fork rate
+      current: 0%
+      target3mo: 15%
+      target12mo: 25%
+      notes: '% of visitors who fork a plan as template'
+    - metric: Premium conversion
+      current: 0%
+      target3mo: N/A (free beta)
+      target12mo: 3%
+      notes: Free -> $9/mo creator tier
   milestones:
-    - milestone: Public launch
-      owner: venturewiki
-      targetDate: "2026-Q2"
-      budget: "$0"
-      successCriteria: 50 ventures created, app stable
+    - milestone: Launch public beta on Product Hunt
+      owner: Founder
+      targetDate: 2026-Q2
+      budget: $0
+      successCriteria: 500 signups in first week
       status: in-progress
-    - milestone: MCP Server MVP
-      owner: venturewiki
-      targetDate: "2026-Q3"
-      budget: "$0"
-      successCriteria: Claude Desktop can read and write venture plans
+    - milestone: First 100 community-submitted plans
+      owner: Community
+      targetDate: 2026-Q3
+      budget: $500 (bounties)
+      successCriteria: 100 published, non-template plans
       status: not-started
-    - milestone: Pro tier launch
-      owner: venturewiki
-      targetDate: "2026-Q3"
-      budget: "$0"
-      successCriteria: First paying subscriber
+    - milestone: AI plan generation assistant
+      owner: Engineering
+      targetDate: 2026-Q3
+      budget: $2,000 (API costs)
+      successCriteria: GPT-4o fills 80% of template from a one-paragraph idea
       status: not-started
-
+    - milestone: Premium tier launch (private plans + analytics)
+      owner: Founder
+      targetDate: 2026-Q4
+      budget: $1,000 (Stripe setup)
+      successCriteria: 50 paying customers at $9/mo
+      status: not-started
+    - milestone: Accelerator partnerships (2 pilots)
+      owner: Founder
+      targetDate: 2026-Q4
+      budget: $100
+      successCriteria: 2 cohorts use VentureWiki as default planning tool
+      status: not-started
+    - milestone: Series seed raise ($250K)
+      owner: Founder
+      targetDate: 2027-Q1
+      budget: $5,000 (legal)
+      successCriteria: Close round at $2M+ cap
+      status: not-started
 fundingAsk:
-  totalRaise: ""
-  instrument: ""
-  valuationCapTerms: ""
-  targetCloseDate: ""
-  askOneLiner: ""
-  useOfFunds: []
+  totalRaise: $250,000
+  instrument: SAFE (Simple Agreement for Future Equity)
+  valuationCapTerms: $2.5M post-money cap, no discount
+  targetCloseDate: Q1 2027
+  askOneLiner: Raising $250K to grow VentureWiki from MVP to 5,000 published plans and launch a premium tier generating $5K MRR.
+  useOfFunds:
+    - category: Engineering
+      amount: $100,000
+      percentage: 40%
+      timeline: 12 months
+      milestoneUnlocked: AI plan assistant, premium tier, API
+    - category: Community & Growth
+      amount: $60,000
+      percentage: 24%
+      timeline: 12 months
+      milestoneUnlocked: 5,000 plans, 10K MAU, 2 accelerator partnerships
+    - category: Infrastructure
+      amount: $30,000
+      percentage: 12%
+      timeline: 12 months
+      milestoneUnlocked: Hosting, GitHub API usage, CDN, monitoring
+    - category: Content & Templates
+      amount: $25,000
+      percentage: 10%
+      timeline: 6 months
+      milestoneUnlocked: Industry-specific templates, case studies, tutorial content
+    - category: Legal & Admin
+      amount: $20,000
+      percentage: 8%
+      timeline: 3 months
+      milestoneUnlocked: Delaware C-Corp, IP assignment, SAFE docs
+    - category: Reserve
+      amount: $15,000
+      percentage: 6%
+      timeline: Buffer
+      milestoneUnlocked: Runway extension or opportunistic hire
   elevatorPitch:
-    hook: >
-      What if your business plan lived on GitHub — versioned, collaborative,
-      and readable by AI agents?
-    companyIntro: >
-      VentureWiki is a structured, wiki-style workspace for digital business
-      plans, backed by GitHub as the database.
-    tractionProof: Live MVP at venturewiki.io. Bootstrapped.
-    marketSize: $800M SAM of GitHub-native early-stage founders.
-    askAndUse: Bootstrapped — no ask at this stage.
-    cta: Try it at venturewiki.io — sign in with GitHub and publish your plan in minutes.
+    hook: Business plans are stuck in the dark ages ÔÇö locked in PDFs, stale in slide decks, and invisible to the world.
+    companyIntro: VentureWiki is the open encyclopedia for digital business plans. Every plan lives as a GitHub repo ÔÇö structured, version-controlled, and forkable.
+    tractionProof: We built the MVP in 3 weeks, our own plan is live on the platform, and the "build in public" movement is creating organic demand for transparent planning tools.
+    marketSize: The business planning software market is $1.2B and growing, but no one has built the GitHub/Wikipedia of business plans.
+    askAndUse: We're raising $250K on a SAFE to reach 5,000 published plans, launch a premium tier, and build AI-assisted plan generation.
+    cta: Check out venturewiki.io ÔÇö and fork our business plan to start yours.
   risks:
+    - risk: Founders don't want to make plans public
+      likelihood: medium
+      impact: high
+      mitigation: Premium tier offers private plans. Many indie hackers already build in public ÔÇö VentureWiki is the structured version.
     - risk: GitHub API rate limits at scale
-      likelihood: medium
-      mitigation: Caching layer + GitHub App token rotation
-    - risk: Developer-only audience too narrow
-      likelihood: medium
-      mitigation: No-code YAML editor and guided plan wizard planned
-  financials: {}
+      likelihood: low
+      impact: medium
+      mitigation: Caching layer, GitHub App (higher limits), migrate hot paths to our own DB if needed.
+    - risk: Low-quality or spam plans
+      likelihood: high
+      impact: medium
+      mitigation: Community moderation, featured curation, AI quality scoring, GitHub's built-in abuse tools.
+    - risk: GitHub changes API terms / pricing
+      likelihood: low
+      impact: high
+      mitigation: Standard GitHub API is stable and free for public repos. We can self-host Gitea as a fallback.
+financials:
+  revenueModel: Freemium SaaS (public plans free, premium for private + AI + analytics)
+  grossMargin: 85%+ (software, minimal COGS beyond API/hosting)
+  burnRate: $8,000/mo (solo founder, infra, tools)
+  runway: 31 months at current burn with $250K raise
+  breakEvenTarget: Month 18 ÔÇö 550 premium subscribers at $9/mo
+  cac: $5 estimated (organic + community-led growth)
+  ltv: $108 (avg 12-month retention x $9/mo)
+  projections:
+    - year: Year 1 (2026)
+      revenue: $0
+      ebitda: '-$96K'
+      users: 10,000 MAU
+    - year: Year 2 (2027)
+      revenue: $120K
+      ebitda: '-$30K'
+      users: 50,000 MAU
+    - year: Year 3 (2028)
+      revenue: $480K
+      ebitda: $120K
+      users: 150,000 MAU
+    - year: Year 4 (2029)
+      revenue: $1.2M
+      ebitda: $400K
+      users: 400,000 MAU
