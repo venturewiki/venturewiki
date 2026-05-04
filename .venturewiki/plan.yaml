@@ -77,7 +77,6 @@ productGtm:
     productType: Web Application (Next.js)
     frontend: Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS
     backend: Next.js API routes, NextAuth.js v4
-    aiLayer: 'Planned: GPT-4o for plan generation assistance, embeddings for search'
     dataStorage: GitHub repos via Octokit (1 repo per plan, plan.yaml + README.md)
     authPayments: GitHub OAuth via NextAuth, Stripe (planned for premium)
     hosting: Railway / Vercel
