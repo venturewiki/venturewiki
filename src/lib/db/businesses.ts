@@ -336,10 +336,19 @@ export async function getEditHistory(businessId: string): Promise<EditRecord[]> 
   try {
     const owner = await resolveBusinessOwner(businessId)
     if (!owner) return []
-    const { data: commits } = await getPublicOctokit().rest.repos.listCommits({
-      owner, repo: businessId, path: PLAN_PATH, per_page: 50,
+    const octokit = getPublicOctokit()
+    const { data: commits } = await octokit.rest.repos.listCommits({
+      owner, repo: businessId, path: '.venturewiki', per_page: 50,
     })
-    return commits.map(c => ({
+    // Fetch changed files for each commit concurrently (capped to keep it fast).
+    const filesList = await Promise.all(
+      commits.map(c =>
+        octokit.rest.repos.getCommit({ owner, repo: businessId, ref: c.sha })
+          .then(r => (r.data.files ?? []).map(f => f.filename).filter(f => f.startsWith('.venturewiki/')))
+          .catch(() => [] as string[])
+      )
+    )
+    return commits.map((c, i) => ({
       id: c.sha,
       businessId,
       userId: c.author?.login || c.commit.author?.name || '',
@@ -348,6 +357,7 @@ export async function getEditHistory(businessId: string): Promise<EditRecord[]> 
       timestamp: c.commit.author?.date || '',
       section: c.commit.message.split('\n')[0],
       summary: c.commit.message,
+      files: filesList[i],
     }))
   } catch {
     return []
