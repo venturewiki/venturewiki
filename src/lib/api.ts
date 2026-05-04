@@ -277,6 +277,63 @@ export async function onboardRepoToVentureWiki(
   })
 }
 
+// ── GitHub User Search & Collaborator Invites ──────────────────────────────
+
+export interface GhUserHit {
+  login: string
+  name?: string
+  avatarUrl: string
+  htmlUrl: string
+}
+
+export async function searchGithubUsers(q: string): Promise<GhUserHit[]> {
+  if (!q.trim()) return []
+  return apiFetch<GhUserHit[]>(`/api/github/users/search?q=${encodeURIComponent(q)}`, {
+    errorLabel: 'GitHub user search failed',
+  })
+}
+
+export async function inviteCollaborator(
+  slug: string,
+  username: string,
+  permission: 'push' | 'maintain' | 'admin' = 'push',
+): Promise<void> {
+  await apiFetch(`/api/businesses/${enc(slug)}/collaborators`, {
+    method: 'POST',
+    body: { username, permission },
+    errorLabel: 'Failed to invite collaborator',
+  })
+}
+
+// Invite someone by email address — triggers a GitHub org invitation. The
+// recipient receives a GitHub email that works even without a GitHub account:
+// it walks them through signup then grants org membership.
+export async function inviteCollaboratorByEmail(slug: string, email: string): Promise<void> {
+  await apiFetch(`/api/businesses/${enc(slug)}/collaborators`, {
+    method: 'POST',
+    body: { email },
+    errorLabel: 'Failed to send email invitation',
+  })
+}
+
+// Check (and auto-fix) the org's base-permission setting so email-invited
+// members only get access to the venture's team-scoped repo.
+export interface CollabSecurityStatus {
+  applicable: boolean
+  isSecure?: boolean
+  basePermission?: string
+  wasFixed?: boolean
+  fixFailed?: boolean
+  teamScoped?: boolean
+}
+
+export async function getCollaboratorSecurity(slug: string): Promise<CollabSecurityStatus> {
+  return apiFetch<CollabSecurityStatus>(
+    `/api/businesses/${enc(slug)}/collaborators`,
+    { method: 'GET', errorLabel: 'Failed to check org security' },
+  )
+}
+
 // ── Stripe ─────────────────────────────────────────────────────────────────
 
 export async function createCheckoutSession(plan: 'monthly' | 'yearly'): Promise<string> {

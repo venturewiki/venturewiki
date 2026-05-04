@@ -131,23 +131,28 @@ export async function createVentureFile(
 export async function readVentureFile(
   slug: string,
   filePath: string,
+  viewerOctokit?: Octokit,
 ): Promise<{ name: string; content: string } | null> {
   if (!isSafePath(filePath)) return null
 
   const cacheKey = `vwfile:${slug}:${filePath}`
-  const cached = getCached<{ name: string; content: string }>(cacheKey)
-  if (cached) return cached
+  // Only use the in-process cache for public (admin-token) reads; a viewer
+  // token may surface a private file that the public octokit can't reach.
+  if (!viewerOctokit) {
+    const cached = getCached<{ name: string; content: string }>(cacheKey)
+    if (cached) return cached
+  }
 
-  const owner = await resolveBusinessOwner(slug)
+  const owner = await resolveBusinessOwner(slug, viewerOctokit)
   if (!owner) return null
 
   try {
-    const { data } = await getRepoContent(getPublicOctokit(), {
+    const { data } = await getRepoContent(viewerOctokit ?? getPublicOctokit(), {
       owner, repo: slug, path: `.venturewiki/${filePath}`,
     })
     if ('content' in data && data.type === 'file') {
       const result = { name: data.name, content: decodeContent(data.content) }
-      setCache(cacheKey, result)
+      if (!viewerOctokit) setCache(cacheKey, result)
       return result
     }
     return null
@@ -161,14 +166,15 @@ export async function readVentureFile(
 export async function readVentureFileBuffer(
   slug: string,
   filePath: string,
+  viewerOctokit?: Octokit,
 ): Promise<{ name: string; bytes: Buffer } | null> {
   if (!isSafePath(filePath)) return null
 
-  const owner = await resolveBusinessOwner(slug)
+  const owner = await resolveBusinessOwner(slug, viewerOctokit)
   if (!owner) return null
 
   try {
-    const { data } = await getRepoContent(getPublicOctokit(), {
+    const { data } = await getRepoContent(viewerOctokit ?? getPublicOctokit(), {
       owner, repo: slug, path: `.venturewiki/${filePath}`,
     })
     if ('content' in data && data.type === 'file') {

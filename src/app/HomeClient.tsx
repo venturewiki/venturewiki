@@ -28,11 +28,13 @@ export default function HomePage() {
     finally { setLoading(false) }
   }, [])
 
+  // Re-fetch when the session changes (e.g. user just signed in) so private
+  // ventures become visible immediately without requiring a manual page reload.
   useEffect(() => {
     refreshBusinesses()
     const interval = setInterval(refreshBusinesses, 120_000)
     return () => clearInterval(interval)
-  }, [refreshBusinesses])
+  }, [refreshBusinesses, session?.user?.id])
 
   const filtered = businesses.filter(b => {
     if (featuredOnly && !b.isFeatured) return false
