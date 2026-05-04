@@ -42,12 +42,12 @@ export default function Navbar() {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          <Link href="/business/new" className={`hidden sm:inline-flex ${session ? 'btn-primary' : 'btn-ghost'}`}>
+            <Plus className="w-4 h-4" /> New venture
+          </Link>
+
           {session ? (
             <>
-              <Link href="/business/new" className="btn-primary hidden sm:inline-flex">
-                <Plus className="w-4 h-4" /> New Business
-              </Link>
-
               {/* User menu */}
               <div className="relative">
                 <button
