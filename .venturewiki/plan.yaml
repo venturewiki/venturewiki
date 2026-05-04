@@ -14,7 +14,7 @@ cover:
   companyName: VentureWiki
   tagline: The open encyclopedia for digital business plans
   mission: Make business planning transparent, collaborative, and accessible to every digital founder on the planet.
-  vision: Become the Wikipedia of business plans ÔÇö a living, version-controlled reference that anyone can learn from, contribute to, or fork.
+  vision: Become the Wikipedia of business plans — a living, version-controlled reference that anyone can learn from, contribute to, or fork.
   productType: web-app
   industryVertical: SaaS / Developer Tools
   stage: mvp
@@ -22,31 +22,31 @@ cover:
   headquarters: Remote (US/EU)
   legalStructure: Delaware C-Corp (planned)
   websiteUrl: https://venturewiki.io
-  logoEmoji: ­ƒôû
+  logoEmoji: '🚀'
   accentColor: '#E8622A'
   version: '1.0'
   preparedBy: VentureWiki Founding Team
   fundingSought: $250K pre-seed
   tractionHighlights:
-    revenue: Pre-revenue ÔÇö free public beta
+    revenue: Pre-revenue — free public beta
     users: Open-source, community-driven
     partnerships: Built on GitHub infrastructure
     press: 'Self-documenting: our own plan is on VentureWiki'
 problemSolution:
-  corePainPoint: Business plans are locked in closed PDFs, stale slide decks, and expensive SaaS tools ÔÇö they die the moment they're created. Founders can't learn from real examples, investors can't compare, and the knowledge never compounds.
+  corePainPoint: Business plans are locked in closed PDFs, stale slide decks, and expensive SaaS tools — they die the moment they're created. Founders can't learn from real examples, investors can't compare, and the knowledge never compounds.
   painDimensions:
     who: First-time digital founders, indie hackers, bootstrap entrepreneurs, accelerator cohorts
     frequency: Every new venture (millions per year globally)
     currentWorkarounds: LivePlan ($20/mo locked), Google Docs (unstructured), pitch decks (incomplete), Y Combinator essays (not actionable templates)
     costOfProblem: Founders waste 40-80 hours writing plans from scratch. Investors see inconsistent formats. Knowledge never compounds.
-    urgencyLevel: High ÔÇö AI is creating a new wave of micro-SaaS founders who need lightweight planning tools
-  solutionOneLiner: VentureWiki is an open, version-controlled wiki where every digital business plan lives as a GitHub repo ÔÇö structured, forkable, and always up to date.
+    urgencyLevel: High — AI is creating a new wave of micro-SaaS founders who need lightweight planning tools
+  solutionOneLiner: VentureWiki is an open, version-controlled wiki where every digital business plan lives as a GitHub repo — structured, forkable, and always up to date.
   features:
     - feature: Structured 5-page business plan template
       benefit: Consistent, comparable format across all plans
       techLayer: React form + JSON schema validation
     - feature: GitHub-backed storage
-      benefit: Full version history, forking, pull requests ÔÇö built on infrastructure developers already know
+      benefit: Full version history, forking, pull requests — built on infrastructure developers already know
       techLayer: Octokit + GitHub API (repos, commits, issues)
     - feature: Public-by-default directory
       benefit: Anyone can browse, learn from, and fork real business plans
@@ -58,7 +58,7 @@ problemSolution:
       benefit: Every plan is readable directly on GitHub without our UI
       techLayer: Markdown generation from plan.yaml
     - feature: Edit history from git commits
-      benefit: See how a business plan evolved over time ÔÇö pivots, growth, strategy shifts
+      benefit: See how a business plan evolved over time — pivots, growth, strategy shifts
       techLayer: Git log on .venturewiki/plan.yaml
   unfairAdvantage: 'Network effects: every plan added makes VentureWiki more valuable. GitHub gives us free hosting, CDN, version control, and developer trust. No other business plan tool builds on open infrastructure.'
   market:
@@ -81,11 +81,11 @@ productGtm:
     dataStorage: GitHub repos via Octokit (1 repo per plan, plan.yaml + README.md)
     authPayments: GitHub OAuth via NextAuth, Stripe (planned for premium)
     hosting: Railway / Vercel
-    buildStage: MVP ÔÇö core CRUD, auth, search, and browsing functional
-    ipLayer: Open source (MIT) ÔÇö the platform is open, plans are owned by their creators
+    buildStage: MVP — core CRUD, auth, search, and browsing functional
+    ipLayer: Open source (MIT) — the platform is open, plans are owned by their creators
   gtmChannels:
     - channel: Hacker News / Product Hunt
-      tactic: 'Launch post: "We put our business plan on GitHub ÔÇö here it is"'
+      tactic: 'Launch post: "We put our business plan on GitHub — here it is"'
       goal90Day: 5,000 unique visitors, 200 signups
       owner: Founder
       budgetPerMonth: $0
@@ -95,7 +95,7 @@ productGtm:
       owner: Founder
       budgetPerMonth: $0
     - channel: Dev communities
-      tactic: Post on r/SideProject, IndieHackers, dev.to ÔÇö "fork this business plan template"
+      tactic: Post on r/SideProject, IndieHackers, dev.to — "fork this business plan template"
       goal90Day: 100 forks of template plan
       owner: Founder
       budgetPerMonth: $0
@@ -110,7 +110,7 @@ productGtm:
       owner: Founder
       budgetPerMonth: $100
   icp: Technical founder, 25-40, building a digital product (SaaS, API, AI agent). Comfortable with GitHub. Wants structured planning without expensive tools. Values transparency and learning from others.
-  pricingModel: Freemium ÔÇö Public plans free forever. Premium for private plans, AI assistance, analytics, and custom domains.
+  pricingModel: Freemium — Public plans free forever. Premium for private plans, AI assistance, analytics, and custom domains.
   pricePoint: Free (public) / $9/mo creator tier / $29/mo team tier
   salesMotion: 'Product-led growth: browse -> fork -> create -> upgrade'
   timeToValue: '< 5 minutes: sign in with GitHub, fill in the cover section, publish'
@@ -131,8 +131,8 @@ productGtm:
       competitorB: Blank document
       competitorC: User-built templates
     - dimension: Open / forkable
-      yourProduct: Yes ÔÇö public repos, MIT
-      competitorA: No ÔÇö proprietary
+      yourProduct: Yes — public repos, MIT
+      competitorA: No — proprietary
       competitorB: Shareable but not forkable
       competitorC: Duplicatable
     - dimension: Developer-friendly
@@ -159,7 +159,7 @@ teamRoadmap:
       current: '1'
       target3mo: '100'
       target12mo: 5,000
-      notes: Core growth metric ÔÇö every plan adds network value
+      notes: Core growth metric — every plan adds network value
     - metric: Monthly active users
       current: '0'
       target3mo: '500'
@@ -255,17 +255,17 @@ fundingAsk:
       timeline: Buffer
       milestoneUnlocked: Runway extension or opportunistic hire
   elevatorPitch:
-    hook: Business plans are stuck in the dark ages ÔÇö locked in PDFs, stale in slide decks, and invisible to the world.
-    companyIntro: VentureWiki is the open encyclopedia for digital business plans. Every plan lives as a GitHub repo ÔÇö structured, version-controlled, and forkable.
+    hook: Business plans are stuck in the dark ages — locked in PDFs, stale in slide decks, and invisible to the world.
+    companyIntro: VentureWiki is the open encyclopedia for digital business plans. Every plan lives as a GitHub repo — structured, version-controlled, and forkable.
     tractionProof: We built the MVP in 3 weeks, our own plan is live on the platform, and the "build in public" movement is creating organic demand for transparent planning tools.
     marketSize: The business planning software market is $1.2B and growing, but no one has built the GitHub/Wikipedia of business plans.
     askAndUse: We're raising $250K on a SAFE to reach 5,000 published plans, launch a premium tier, and build AI-assisted plan generation.
-    cta: Check out venturewiki.io ÔÇö and fork our business plan to start yours.
+    cta: Check out venturewiki.io — and fork our business plan to start yours.
   risks:
     - risk: Founders don't want to make plans public
       likelihood: medium
       impact: high
-      mitigation: Premium tier offers private plans. Many indie hackers already build in public ÔÇö VentureWiki is the structured version.
+      mitigation: Premium tier offers private plans. Many indie hackers already build in public — VentureWiki is the structured version.
     - risk: GitHub API rate limits at scale
       likelihood: low
       impact: medium
@@ -283,7 +283,7 @@ financials:
   grossMargin: 85%+ (software, minimal COGS beyond API/hosting)
   burnRate: $8,000/mo (solo founder, infra, tools)
   runway: 31 months at current burn with $250K raise
-  breakEvenTarget: Month 18 ÔÇö 550 premium subscribers at $9/mo
+  breakEvenTarget: Month 18 — 550 premium subscribers at $9/mo
   cac: $5 estimated (organic + community-led growth)
   ltv: $108 (avg 12-month retention x $9/mo)
   projections:
