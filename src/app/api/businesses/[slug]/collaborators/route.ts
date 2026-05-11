@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { resolveBusinessOwner, getBusinessBySlug } from '@/lib/db'
+import { resolveBusinessOwner } from '@/lib/db'
 import { getAdminOctokit, getUserOctokit, GITHUB_ORG } from '@/lib/github'
 
 export const dynamic = 'force-dynamic'
@@ -10,12 +10,14 @@ export const dynamic = 'force-dynamic'
 //
 // Returns the org's current base-permission setting and whether it is secure
 // (i.e. "none"). If it is not "none" the handler automatically attempts to
-// tighten it using the platform admin token so that email-invited members
-// never inadvertently inherit access to every repo in the org.
+// tighten it using the platform admin token — this guarantees that any org
+// members never inadvertently inherit access to every repo in the org, so the
+// only access to a venture's repo is the explicit outside-collaborator grants
+// made through this UI.
 //
 // Response shape:
 //   { applicable: false }                        – venture not in the VW org
-//   { applicable: true, isSecure, basePermission, wasFixed, fixFailed, teamScoped }
+//   { applicable: true, isSecure, basePermission, wasFixed, fixFailed }
 export async function GET(
   req: NextRequest,
   { params }: { params: { slug: string } },
@@ -30,9 +32,6 @@ export async function GET(
     return NextResponse.json({ applicable: false })
   }
 
-  const venture = await getBusinessBySlug(params.slug)
-  const teamScoped = !!venture?._githubTeamId
-
   let basePermission = 'unknown'
   let wasFixed = false
   let fixFailed = false
@@ -42,9 +41,11 @@ export async function GET(
     basePermission = org.default_repository_permission || 'read'
 
     if (basePermission !== 'none') {
-      // Auto-tighten: set org base permissions to "none" so that new org
-      // members (created via email invitations) can only access repos they
-      // were explicitly added to via their venture team.
+      // Auto-tighten: set org base permissions to "none" so that org members
+      // can only access repos they were explicitly added to. Outside
+      // collaborators (how this UI invites people) are unaffected by this
+      // setting, but tightening it closes the broader "every member sees every
+      // private repo" leak.
       try {
         await getAdminOctokit().rest.orgs.update({
           org: GITHUB_ORG,
@@ -61,17 +62,19 @@ export async function GET(
   }
 
   const isSecure = basePermission === 'none'
-  return NextResponse.json({ applicable: true, isSecure, basePermission, wasFixed, fixFailed, teamScoped })
+  return NextResponse.json({ applicable: true, isSecure, basePermission, wasFixed, fixFailed })
 }
 
 // POST /api/businesses/[slug]/collaborators
 //
-// Two modes depending on request body:
-//   { username: string, permission?: string }
-//     → sends a GitHub repo collaboration invite to an existing GitHub user
-//   { email: string }
-//     → sends a GitHub org invitation by email (works for non-GitHub users too);
-//       only available for ventures hosted in the venturewiki org
+// Body: { username: string, permission?: 'push' | 'maintain' | 'admin' }
+//
+// Sends a GitHub repository collaboration invite to an existing GitHub user.
+// Because this only ever calls `repos.addCollaborator`, an invitee who is not
+// already an org member is added as an *outside collaborator* scoped to this
+// one repository — never as an organization member. This deliberately does not
+// support email-based org invitations, which would make the invitee a member
+// of the whole org.
 export async function POST(
   req: NextRequest,
   { params }: { params: { slug: string } },
@@ -83,10 +86,9 @@ export async function POST(
 
   const body = await req.json().catch(() => ({}))
   const username: string = (body.username || '').trim()
-  const email: string    = (body.email    || '').trim()
 
-  if (!username && !email) {
-    return NextResponse.json({ error: 'username or email is required' }, { status: 400 })
+  if (!username) {
+    return NextResponse.json({ error: 'username is required' }, { status: 400 })
   }
 
   const owner = await resolveBusinessOwner(params.slug)
@@ -94,41 +96,6 @@ export async function POST(
     return NextResponse.json({ error: 'Venture not found' }, { status: 404 })
   }
 
-  // ── Email invite: GitHub org invitation (works for people without GitHub) ──
-  if (email) {
-    if (owner !== GITHUB_ORG) {
-      return NextResponse.json(
-        {
-          error:
-            'Email invitations are only available for ventures hosted in the VentureWiki ' +
-            'organization. Ask them to create a GitHub account at github.com/join, then ' +
-            'search their username here to invite them directly.',
-        },
-        { status: 400 },
-      )
-    }
-    // Scope the invitation to this venture's GitHub team so the person only
-    // gets access to this one repo (requires org base permissions = "None").
-    const venture = await getBusinessBySlug(params.slug)
-    const teamId = venture?._githubTeamId
-
-    try {
-      await getAdminOctokit().rest.orgs.createInvitation({
-        org: GITHUB_ORG,
-        email,
-        role: 'direct_member',
-        ...(teamId ? { team_ids: [teamId] } : {}),
-      })
-    } catch (e: any) {
-      return NextResponse.json(
-        { error: e?.message || 'Failed to send email invitation' },
-        { status: 500 },
-      )
-    }
-    return NextResponse.json({ ok: true, email, teamScoped: !!teamId })
-  }
-
-  // ── Username invite: direct GitHub repo collaborator ───────────────────────
   const permission = ['push', 'maintain', 'admin'].includes(body.permission)
     ? (body.permission as 'push' | 'maintain' | 'admin')
     : 'push'
