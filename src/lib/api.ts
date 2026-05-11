@@ -1,12 +1,15 @@
 // Client-side API module — replaces direct imports from db.ts in 'use client' components.
-import type { BusinessPlan, EditRecord, Comment, AdminStats, VWUser, RoleCandidate, Validation, InvestmentInterest, VentureValue } from '@/types'
+import type {
+  BusinessPlan, EditRecord, Comment, AdminStats, VWUser, RoleCandidate, Validation, InvestmentInterest, VentureValue,
+  VentureIssue, VentureIssueDetail, VentureIssueComment, VentureIssueType, VentureIssueStatus,
+} from '@/types'
 
 // ── HTTP helper ────────────────────────────────────────────────────────────
 // Single shape for all client → server calls. Surfaces server-supplied error
 // messages (`{ error }` JSON) when they exist, falls back to a generic label.
 
 interface FetchOpts {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   body?: unknown
   /** Generic error label used when the server response doesn't include one. */
   errorLabel?: string
@@ -106,6 +109,50 @@ export async function postComment(slug: string, content: string, section?: strin
     method: 'POST', body: { content, section }, errorLabel: 'Failed to post comment',
   })
   return id
+}
+
+// ── Venture Issues ─────────────────────────────────────────────────────────
+
+export async function fetchVentureIssues(
+  slug: string,
+  opts: { state?: 'open' | 'closed' | 'all'; type?: VentureIssueType } = {},
+): Promise<VentureIssue[]> {
+  const qs = new URLSearchParams()
+  if (opts.state) qs.set('state', opts.state)
+  if (opts.type) qs.set('type', opts.type)
+  const suffix = qs.toString() ? `?${qs}` : ''
+  try { return await apiFetch<VentureIssue[]>(`/api/businesses/${enc(slug)}/issues${suffix}`) } catch { return [] }
+}
+
+export async function fetchVentureIssue(slug: string, number: number): Promise<VentureIssueDetail | null> {
+  return apiFetch<VentureIssueDetail | null>(`/api/businesses/${enc(slug)}/issues/${number}`, {
+    optional: true, errorLabel: 'Failed to load issue',
+  })
+}
+
+export async function createVentureIssue(
+  slug: string,
+  input: { title: string; body?: string; type?: VentureIssueType; assignees?: string[] },
+): Promise<VentureIssue> {
+  return apiFetch<VentureIssue>(`/api/businesses/${enc(slug)}/issues`, {
+    method: 'POST', body: input, errorLabel: 'Failed to create issue',
+  })
+}
+
+export async function updateVentureIssue(
+  slug: string,
+  number: number,
+  patch: { title?: string; body?: string; type?: VentureIssueType | null; status?: VentureIssueStatus; assignees?: string[] },
+): Promise<VentureIssue> {
+  return apiFetch<VentureIssue>(`/api/businesses/${enc(slug)}/issues/${number}`, {
+    method: 'PATCH', body: patch, errorLabel: 'Failed to update issue',
+  })
+}
+
+export async function addVentureIssueComment(slug: string, number: number, body: string): Promise<VentureIssueComment> {
+  return apiFetch<VentureIssueComment>(`/api/businesses/${enc(slug)}/issues/${number}`, {
+    method: 'POST', body: { body }, errorLabel: 'Failed to add comment',
+  })
 }
 
 // ── Edit History ───────────────────────────────────────────────────────────
