@@ -23,6 +23,10 @@ export {
 } from './db/users'
 export { addComment, getComments } from './db/comments'
 export {
+  listVentureIssues, getVentureIssue, createVentureIssue, updateVentureIssue, addVentureIssueComment,
+  type ListIssuesOpts, type CreateIssueInput, type UpdateIssueInput,
+} from './db/issues'
+export {
   getCandidates, applyForRole, endorseCandidate, updateCandidateStatus,
   getValidations, addValidation,
   getInvestments, expressInvestmentInterest, updateInvestmentStatus,

@@ -316,6 +316,43 @@ export interface Comment {
   section?: string
 }
 
+// ── Venture issues (GitHub Issues + a vw: label taxonomy) ─────────────────────
+export type VentureIssueType   = 'task' | 'milestone' | 'open-role' | 'idea' | 'risk' | 'bug'
+export type VentureIssueStatus = 'backlog' | 'in-progress' | 'done'
+
+export interface VentureIssue {
+  number: number
+  businessId: string                    // repo slug
+  title: string
+  body: string                          // markdown
+  type: VentureIssueType | null         // derived from a vw:<type> label
+  status: VentureIssueStatus            // closed → done; vw:in-progress → in-progress; else backlog
+  state: 'open' | 'closed'
+  labels: string[]
+  authorLogin: string
+  authorImage?: string
+  assignees: Array<{ login: string; avatarUrl?: string }>
+  commentCount: number
+  htmlUrl: string
+  createdAt: string
+  updatedAt: string
+  closedAt?: string
+}
+
+export interface VentureIssueComment {
+  id: string
+  authorLogin: string
+  authorImage?: string
+  body: string
+  createdAt: string
+  updatedAt?: string
+  htmlUrl: string
+}
+
+export interface VentureIssueDetail extends VentureIssue {
+  comments: VentureIssueComment[]
+}
+
 // ── Admin stats ───────────────────────────────────────────────────────────────
 export interface AdminStats {
   totalBusinesses: number

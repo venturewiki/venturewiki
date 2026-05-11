@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import {
   Eye, GitBranch, Clock, Users, ChevronRight,
-  UserPlus, ShieldCheck, HandCoins, MessageSquare, Menu, X,
+  UserPlus, ShieldCheck, HandCoins, MessageSquare, Menu, X, CircleDot,
 } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
 import { SectionYamlEditor } from '@/components/business/SectionYamlEditor'
@@ -31,6 +31,7 @@ import { ValidationsTab } from '@/components/venture/ValidationsTab'
 import { InvestmentsTab } from '@/components/venture/InvestmentsTab'
 import { HistoryTab } from '@/components/venture/HistoryTab'
 import { DiscussionTab } from '@/components/venture/DiscussionTab'
+import { IssuesTab } from '@/components/venture/IssuesTab'
 import { AddFileModal } from '@/components/venture/AddFileModal'
 import InviteCollaboratorModal from '@/components/venture/InviteCollaboratorModal'
 import { CollaboratorsTab } from '@/components/venture/CollaboratorsTab'
@@ -40,7 +41,7 @@ import type { VentureFile } from '@/lib/api'
 // Platform tabs back onto separate yaml files (candidates/validations/…) plus
 // the discussion + git-history surfaces. Plan-section tabs are derived from
 // the keys present in `.venturewiki/plan.yaml`.
-const PLATFORM_TAB_IDS = ['candidates', 'validations', 'invest', 'history', 'discuss', 'collaborators'] as const
+const PLATFORM_TAB_IDS = ['candidates', 'validations', 'invest', 'issues', 'history', 'discuss', 'collaborators'] as const
 
 export default function VenturePage() {
   // owner is the GitHub org/user login — included in the URL so slugs are
@@ -222,6 +223,7 @@ export default function VenturePage() {
     { id: 'candidates',  label: `Candidates (${candidates.length})`,   icon: UserPlus },
     { id: 'validations', label: `Validations (${validations.length})`, icon: ShieldCheck },
     { id: 'invest',      label: `Invest (${investments.length})`,      icon: HandCoins },
+    { id: 'issues',      label: 'Issues',                              icon: CircleDot },
     { id: 'history',     label: `History (${edits.length})`,           icon: GitBranch },
     { id: 'discuss',     label: `Discussion (${comments.length})`,     icon: MessageSquare },
     { id: 'collaborators', label: 'Collaborators',                     icon: Users },
@@ -350,6 +352,9 @@ export default function VenturePage() {
             )}
             {!activeFile && activeTab === 'invest' && (
               <InvestmentsTab investments={investments} />
+            )}
+            {!activeFile && activeTab === 'issues' && (
+              <IssuesTab businessId={business.id} canEdit={canEdit} roadmap={tr} />
             )}
             {!activeFile && activeTab === 'history' && (
               <HistoryTab edits={edits} />
