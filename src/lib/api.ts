@@ -293,6 +293,10 @@ export async function searchGithubUsers(q: string): Promise<GhUserHit[]> {
   })
 }
 
+// Invite an existing GitHub user as an outside collaborator on this venture's
+// repo only. There is intentionally no email-invite variant — GitHub has no
+// email-based outside-collaborator API, and email org invitations would make
+// the recipient a member of the whole organization.
 export async function inviteCollaborator(
   slug: string,
   username: string,
@@ -305,26 +309,14 @@ export async function inviteCollaborator(
   })
 }
 
-// Invite someone by email address — triggers a GitHub org invitation. The
-// recipient receives a GitHub email that works even without a GitHub account:
-// it walks them through signup then grants org membership.
-export async function inviteCollaboratorByEmail(slug: string, email: string): Promise<void> {
-  await apiFetch(`/api/businesses/${enc(slug)}/collaborators`, {
-    method: 'POST',
-    body: { email },
-    errorLabel: 'Failed to send email invitation',
-  })
-}
-
-// Check (and auto-fix) the org's base-permission setting so email-invited
-// members only get access to the venture's team-scoped repo.
+// Check (and auto-fix) the org's base-permission setting so that org members
+// can't inherit access to every private repo in the org.
 export interface CollabSecurityStatus {
   applicable: boolean
   isSecure?: boolean
   basePermission?: string
   wasFixed?: boolean
   fixFailed?: boolean
-  teamScoped?: boolean
 }
 
 export async function getCollaboratorSecurity(slug: string): Promise<CollabSecurityStatus> {

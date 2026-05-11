@@ -1,16 +1,19 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
-import { X, Search, Mail, Loader2, ShieldCheck, ShieldAlert, ShieldOff } from 'lucide-react'
-import { searchGithubUsers, inviteCollaborator, inviteCollaboratorByEmail, getCollaboratorSecurity, type GhUserHit, type CollabSecurityStatus } from '@/lib/api'
+import { X, Search, Loader2, ShieldCheck, ShieldAlert, ShieldOff, ExternalLink } from 'lucide-react'
+import { searchGithubUsers, inviteCollaborator, getCollaboratorSecurity, type GhUserHit, type CollabSecurityStatus } from '@/lib/api'
 
 /**
  * Modal that lets the venture owner search for a GitHub user by username or
- * display name and send them a GitHub repository collaboration invite
- * (gives push / write access to the venture's repo).
+ * display name and add them as an *outside collaborator* on the venture's
+ * repository only (push / write access to this one repo — never org membership).
  *
- * If no match is found the user is offered a link to github.com/join so they
- * can share a GitHub signup invitation with the person they want to add.
+ * If no GitHub account matches, the user is pointed to github.com/join so the
+ * person can create an account; once they have a username they can be invited
+ * directly here. We deliberately do not offer email-based org invitations,
+ * which would make the invitee a member of the whole organization and expose
+ * every other repo governed by the org's base permissions.
  */
 export default function InviteCollaboratorModal({
   open,
@@ -28,12 +31,6 @@ export default function InviteCollaboratorModal({
   const [error,   setError]   = useState<string | null>(null)
   const [invited, setInvited] = useState<string[]>([])
 
-  // Email invite state
-  const [emailInput,   setEmailInput]   = useState('')
-  const [emailSending, setEmailSending] = useState(false)
-  const [emailError,   setEmailError]   = useState<string | null>(null)
-  const [emailSentTo,  setEmailSentTo]  = useState<string | null>(null)
-
   // Org security status (checked on open for org-hosted ventures)
   const [security, setSecurity] = useState<CollabSecurityStatus | null>(null)
 
@@ -46,9 +43,6 @@ export default function InviteCollaboratorModal({
       setHits([])
       setError(null)
       setInvited([])
-      setEmailInput('')
-      setEmailError(null)
-      setEmailSentTo(null)
       setSecurity(null)
     } else {
       setTimeout(() => inputRef.current?.focus(), 50)
@@ -89,22 +83,6 @@ export default function InviteCollaboratorModal({
     }
   }
 
-  const handleEmailInvite = async () => {
-    const addr = emailInput.trim()
-    if (!addr) return
-    setEmailError(null)
-    setEmailSending(true)
-    try {
-      await inviteCollaboratorByEmail(ventureId, addr)
-      setEmailSentTo(addr)
-      setEmailInput('')
-    } catch (e: any) {
-      setEmailError(e?.message || 'Could not send email invitation')
-    } finally {
-      setEmailSending(false)
-    }
-  }
-
   if (!open) return null
 
   const noResults = !loading && query.trim().length > 0 && hits.length === 0
@@ -112,7 +90,7 @@ export default function InviteCollaboratorModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center px-4"
-      onClick={() => !inviting && !emailSending && onClose()}
+      onClick={() => !inviting && onClose()}
     >
       <div className="absolute inset-0 bg-black/70" />
 
@@ -126,15 +104,17 @@ export default function InviteCollaboratorModal({
           <button
             className="text-muted hover:text-paper transition-colors"
             onClick={onClose}
-            disabled={!!inviting || emailSending}
+            disabled={!!inviting}
             aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
         <p className="text-muted text-sm mb-4">
-          Search GitHub by username or display name. The person will receive a GitHub notification
-          and get <span className="text-paper/80">write access</span> to this venture&apos;s repository.
+          Search GitHub by username or display name. The person is added as an{' '}
+          <span className="text-paper/80">outside collaborator</span> with{' '}
+          <span className="text-paper/80">write access</span> to this venture&apos;s repository only —
+          they will not gain access to any other repository.
         </p>
 
         {/* ── GitHub username search ── */}
@@ -152,6 +132,32 @@ export default function InviteCollaboratorModal({
 
         {error && <p className="text-rose-400 text-sm mb-3">{error}</p>}
 
+        {/* Security status banner */}
+        {security?.applicable && (
+          <div className={`flex items-start gap-2 text-xs rounded-md px-3 py-2 mb-3 ${
+            security.fixFailed
+              ? 'bg-rose-950/60 text-rose-300 border border-rose-800/50'
+              : security.wasFixed
+              ? 'bg-amber-950/60 text-amber-300 border border-amber-800/50'
+              : 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/50'
+          }`}>
+            {security.fixFailed ? (
+              <ShieldOff className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            ) : security.wasFixed ? (
+              <ShieldAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            ) : (
+              <ShieldCheck className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            )}
+            <span>
+              {security.fixFailed
+                ? 'Could not verify org base permissions. Ask your GitHub org admin to set "Base permissions" to "No permission" so members can\'t see other private repos.'
+                : security.wasFixed
+                ? <>Heads up: org base permissions were <strong>open</strong>, so org members could see other private repos. We automatically tightened them to <strong>No permission</strong>.</>
+                : <>Org base permissions are <strong>locked down</strong>. Collaborators you invite here only get access to this repo.</>}
+            </span>
+          </div>
+        )}
+
         {/* Search results */}
         {loading && !hits.length ? (
           <div className="py-8 flex items-center justify-center text-muted text-sm gap-2">
@@ -160,7 +166,7 @@ export default function InviteCollaboratorModal({
         ) : !query.trim() ? (
           <p className="text-muted text-sm italic py-4">Start typing to search GitHub users.</p>
         ) : hits.length > 0 ? (
-          <ul className="divide-y divide-rule/50 mb-4">
+          <ul className="divide-y divide-rule/50">
             {hits.map(h => {
               const alreadyInvited = invited.includes(h.login)
               return (
@@ -205,91 +211,26 @@ export default function InviteCollaboratorModal({
           </ul>
         ) : null}
 
-        {/* No-results state: show email invite form */}
+        {/* No-results state: guide them to create a GitHub account */}
         {noResults && (
-          <p className="text-muted text-sm mb-4">
-            No GitHub account found for &quot;{query}&quot;.
-          </p>
-        )}
-
-        {/* ── Email invite (shown when no results or search is empty) ── */}
-        {(noResults || !query.trim()) && (
-          <div className="border border-rule/60 rounded-lg p-4 space-y-3">
-            {/* Security status banner */}
-            {security?.applicable && (
-              <div className={`flex items-start gap-2 text-xs rounded-md px-3 py-2 ${
-                security.fixFailed
-                  ? 'bg-rose-950/60 text-rose-300 border border-rose-800/50'
-                  : security.wasFixed
-                  ? 'bg-amber-950/60 text-amber-300 border border-amber-800/50'
-                  : 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/50'
-              }`}>
-                {security.fixFailed ? (
-                  <ShieldOff className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                ) : security.wasFixed ? (
-                  <ShieldAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                ) : (
-                  <ShieldCheck className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                )}
-                <span>
-                  {security.fixFailed
-                    ? 'Could not verify repo-only access — org base permissions may be open. Contact your GitHub org admin to set them to "No permission".' 
-                    : security.wasFixed
-                    ? <>Heads up: org base permissions were <strong>open</strong>. We automatically tightened them to <strong>No permission</strong> — invited members will only access this venture&apos;s repo.</>
-                    : security.teamScoped
-                    ? 'Access is scoped to this repo only — invitees will not see other org repos.'
-                    : 'Org base permissions are secure. Note: this venture has no team yet, so repo access will be granted after the invitee accepts and you add them manually.'}
-                </span>
-              </div>
-            )}
-            <div className="flex items-center gap-2">
-              <Mail className="w-4 h-4 text-accent shrink-0" />
-              <p className="text-paper/90 text-sm font-medium">
-                {noResults ? 'Invite by email instead' : "Don't know their GitHub username?"}
-              </p>
-            </div>
-            <p className="text-muted text-xs leading-relaxed">
-              GitHub will send them an invitation email. If they don&apos;t have an account yet,
-              the email guides them through signup — and they land with org membership that
-              lets them contribute to this venture. You can then add them as a direct repo
-              collaborator once you see their new username in the search above.
+          <div className="border border-rule/60 rounded-lg p-4 space-y-2">
+            <p className="text-paper/90 text-sm font-medium">
+              No GitHub account found for &quot;{query}&quot;.
             </p>
-
-            {emailSentTo ? (
-              <div className="flex items-start gap-2 text-emerald-400 text-sm">
-                <span className="shrink-0">✓</span>
-                <span>
-                  Invitation sent to <strong>{emailSentTo}</strong>. They&apos;ll receive an email
-                  from GitHub with next steps.
-                  {' '}Once they accept, search their username above to grant direct repo write access.
-                </span>
-              </div>
-            ) : (
-              <>
-                <div className="flex gap-2">
-                  <input
-                    type="email"
-                    value={emailInput}
-                    onChange={e => setEmailInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleEmailInvite()}
-                    placeholder="their@email.com"
-                    className="input-base flex-1"
-                  />
-                  <button
-                    className="btn-primary text-xs shrink-0"
-                    onClick={handleEmailInvite}
-                    disabled={!emailInput.trim() || emailSending}
-                  >
-                    {emailSending ? (
-                      <span className="flex items-center gap-1.5">
-                        <Loader2 className="w-3 h-3 animate-spin" /> Sending…
-                      </span>
-                    ) : 'Send invite'}
-                  </button>
-                </div>
-                {emailError && <p className="text-rose-400 text-xs">{emailError}</p>}
-              </>
-            )}
+            <p className="text-muted text-xs leading-relaxed">
+              GitHub repository access requires a GitHub account. Ask them to sign up, then
+              come back and search their new username to add them as an outside collaborator
+              on this repo. (We don&apos;t offer email invitations because those would add the
+              person to your whole organization, not just this repository.)
+            </p>
+            <a
+              href="https://github.com/join"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-accent text-xs hover:underline"
+            >
+              github.com/join <ExternalLink className="w-3 h-3" />
+            </a>
           </div>
         )}
       </div>
