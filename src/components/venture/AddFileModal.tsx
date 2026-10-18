@@ -3,6 +3,12 @@ import { useState } from 'react'
 import { FilePlus, X, Folder } from 'lucide-react'
 import type { VentureFile } from '@/lib/api'
 
+const extOf = (n: string) => {
+  const i = n.lastIndexOf('.')
+  return i > 0 && i < n.length - 1 ? n.slice(i).toLowerCase() : ''
+}
+const hasExt = (n: string) => extOf(n.trim()) !== ''
+
 export function AddFileModal({
   open, onClose, onCreate, folders,
 }: {
@@ -14,12 +20,17 @@ export function AddFileModal({
   const [name, setName] = useState('')
   const [folder, setFolder] = useState('')
   const [content, setContent] = useState('')
+  const [uploadedExt, setUploadedExt] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   if (!open) return null
 
-  const reset = () => { setName(''); setFolder(''); setContent(''); setError(null) }
+  const reset = () => { setName(''); setFolder(''); setContent(''); setUploadedExt(''); setError(null) }
+
+  // Previews pick their renderer by extension, so a custom name typed for an
+  // uploaded file inherits the upload's extension when it has none of its own.
+  const withExt = (n: string) => (uploadedExt && !hasExt(n) ? `${n}${uploadedExt}` : n)
 
   const close = () => { if (!saving) { reset(); onClose() } }
 
@@ -27,7 +38,8 @@ export function AddFileModal({
     setError(null)
     setSaving(true)
     try {
-      const fullPath = folder ? `${folder}/${name.trim()}` : name.trim()
+      const fileName = withExt(name.trim())
+      const fullPath = folder ? `${folder}/${fileName}` : fileName
       await onCreate(fullPath, content)
       reset()
       onClose()
@@ -40,7 +52,10 @@ export function AddFileModal({
 
   const handleUpload = (file: File) => {
     setError(null)
+    const ext = extOf(file.name)
+    setUploadedExt(ext)
     if (!name.trim()) setName(file.name)
+    else if (ext && !hasExt(name)) setName(`${name.trim()}${ext}`)
     const reader = new FileReader()
     reader.onload = () => setContent(typeof reader.result === 'string' ? reader.result : '')
     reader.onerror = () => setError('Could not read file (must be a text file)')
