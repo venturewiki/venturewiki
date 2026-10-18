@@ -239,6 +239,31 @@ export async function moveVentureFile(
   invalidateCache(`vwfile:${slug}:`)
 }
 
+export async function deleteVentureFile(
+  slug: string,
+  filePath: string,
+  message: string,
+  viewerOctokit?: Octokit,
+): Promise<void> {
+  if (!filePath.trim() || !isSafePath(filePath)) throw new Error('Invalid file path')
+
+  const owner = await resolveBusinessOwner(slug)
+  if (!owner) throw new Error('Business not found')
+  const octokit = pickWriteOctokit(owner, viewerOctokit)
+
+  const { data } = await getRepoContent(octokit, {
+    owner, repo: slug, path: `.venturewiki/${filePath}`,
+  })
+  if (!('sha' in data) || data.type !== 'file') throw new Error('File not found')
+
+  await deleteRepoContent(octokit, {
+    owner, repo: slug, path: `.venturewiki/${filePath}`, message, sha: data.sha,
+  })
+
+  invalidateCache(`vwfiles:${slug}`)
+  invalidateCache(`vwfile:${slug}:`)
+}
+
 // ── Folder operations ───────────────────────────────────────────────────────
 // GitHub doesn't have a concept of empty directories. We create a `.gitkeep`
 // placeholder to materialise the folder.
