@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
+import { useSession, signIn } from 'next-auth/react'
 import { fetchCollaboratorsData, type CollaboratorsData } from '@/lib/api'
-import { Loader2, Users, Mail, Shield, UserPlus } from 'lucide-react'
+import { Loader2, Users, Mail, Shield, UserPlus, LogIn } from 'lucide-react'
 import { formatRelativeTime } from '@/lib/utils'
 
 export function CollaboratorsTab({
@@ -15,15 +16,36 @@ export function CollaboratorsTab({
   canEdit: boolean
   onInvite: () => void
 }) {
+  const { data: session, status } = useSession()
+  const signedIn = status === 'authenticated'
   const [data, setData] = useState<CollaboratorsData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchCollaboratorsData(businessId).then(res => {
-      if (res) setData(res)
-      setLoading(false)
-    })
-  }, [businessId])
+    if (!signedIn) return
+    setLoading(true)
+    fetchCollaboratorsData(businessId)
+      .then(res => setData(res))
+      .catch(() => setData(null))
+      .finally(() => setLoading(false))
+  }, [businessId, signedIn])
+
+  // Repository access is only visible to signed-in users (the API returns 401
+  // otherwise), so prompt for sign-in instead of attempting the fetch.
+  if (status === 'unauthenticated') {
+    return (
+      <div className="section-card py-12 text-center space-y-4 animate-fade-in">
+        <Users className="w-8 h-8 text-muted mx-auto" />
+        <div>
+          <h2 className="font-display font-bold text-paper text-lg">Collaborators and teams</h2>
+          <p className="text-muted text-sm">Sign in with GitHub to see who has access to this venture&apos;s repository.</p>
+        </div>
+        <button onClick={() => signIn('github')} className="btn-primary inline-flex items-center gap-2">
+          <LogIn className="w-4 h-4" /> Sign in with GitHub
+        </button>
+      </div>
+    )
+  }
 
   if (loading) {
     return (
@@ -50,7 +72,7 @@ export function CollaboratorsTab({
           <h2 className="font-display font-bold text-paper text-lg">Collaborators and teams</h2>
           <p className="text-muted text-sm">People and teams with access to this venture&apos;s repository.</p>
         </div>
-        {canEdit && (
+        {canEdit && session && (
           <button className="btn-primary flex items-center gap-2" onClick={onInvite}>
             <UserPlus className="w-4 h-4" /> Invite collaborator
           </button>
