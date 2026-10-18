@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { getBusinessBySlug, updateBusiness, resolveBusinessOwner } from '@/lib/db'
-import { GITHUB_ORG, getUserOctokit } from '@/lib/github'
-import { checkRateLimit, getClientIp } from '@/lib/rateLimit'
+import { getBusinessBySlug, updateBusiness } from '@/lib/db'
+import { getUserOctokit } from '@/lib/github'
+import { authorizeVentureWrite } from '@/lib/ventureWriteAuth'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,34 +37,10 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: { slug: string } }
 ) {
-  const session = await getServerSession(authOptions)
+  const auth = await authorizeVentureWrite(req, params.slug)
+  if (auth instanceof NextResponse) return auth
+  const { userId, viewerOctokit } = auth
   const { data, editSummary } = await req.json()
-
-  let userId: string
-  let viewerOctokit
-  if (session?.user?.id) {
-    userId = session.user.id
-    if (session.accessToken) viewerOctokit = getUserOctokit(session.accessToken)
-  } else {
-    // Anonymous edits are only permitted on venturewiki-org repos (where the
-    // admin token has rights). All other ventures require sign-in. Rate-limited.
-    const owner = await resolveBusinessOwner(params.slug)
-    if (owner !== GITHUB_ORG) {
-      return NextResponse.json(
-        { error: 'Sign in to edit ventures outside the venturewiki org' },
-        { status: 401 },
-      )
-    }
-    const ip = getClientIp(req.headers)
-    const rl = checkRateLimit(`anon-edit:${ip}`, 10, 60 * 60 * 1000)
-    if (!rl.allowed) {
-      return NextResponse.json(
-        { error: `Too many anonymous edits. Try again in ${rl.retryAfter}s, or sign in.` },
-        { status: 429 },
-      )
-    }
-    userId = 'anonymous'
-  }
 
   try {
     await updateBusiness(params.slug, data, userId, editSummary || 'Update business', viewerOctokit)
