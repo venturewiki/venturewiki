@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { listVentureFiles, createVentureFile } from '@/lib/db'
-import { getUserOctokit } from '@/lib/github'
+import { authorizeVentureWrite } from '@/lib/ventureWriteAuth'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,20 +16,15 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { slug: string } }
 ) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-  if (session.user.role !== 'admin' && session.user.role !== 'editor') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const auth = await authorizeVentureWrite(req, params.slug, { requireRole: true })
+  if (auth instanceof NextResponse) return auth
 
   const { name, content } = await req.json().catch(() => ({}))
   if (typeof name !== 'string' || typeof content !== 'string') {
     return NextResponse.json({ error: 'name and content required' }, { status: 400 })
   }
 
-  const viewerOctokit = session.accessToken ? getUserOctokit(session.accessToken) : undefined
+  const { viewerOctokit } = auth
   try {
     await createVentureFile(params.slug, name, content, `Add ${name} via VentureWiki`, viewerOctokit)
   } catch (e: any) {
