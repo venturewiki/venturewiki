@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { readVentureFile, readVentureFileBuffer } from '@/lib/db'
+import { readVentureFile, readVentureFileBuffer, deleteVentureFile } from '@/lib/db'
 import { mimeFromName } from '@/lib/mime'
 import { getUserOctokit } from '@/lib/github'
+import { authorizeVentureWrite } from '@/lib/ventureWriteAuth'
 
 export const dynamic = 'force-dynamic'
 
@@ -124,4 +125,22 @@ export async function GET(
   const file = await readVentureFile(params.slug, filePath, viewerOctokit)
   if (!file) return NextResponse.json({ error: 'not found' }, { status: 404 })
   return NextResponse.json(file)
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { slug: string; path: string[] } }
+) {
+  const filePath = params.path?.join('/') ?? ''
+  if (!filePath) return NextResponse.json({ error: 'missing path' }, { status: 400 })
+
+  const auth = await authorizeVentureWrite(req, params.slug, { requireRole: true })
+  if (auth instanceof NextResponse) return auth
+
+  try {
+    await deleteVentureFile(params.slug, filePath, `Delete ${filePath} via VentureWiki`, auth.viewerOctokit)
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message || 'Failed to delete file' }, { status: 400 })
+  }
+  return NextResponse.json({ ok: true })
 }

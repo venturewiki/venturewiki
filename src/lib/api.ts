@@ -218,6 +218,12 @@ export async function moveVentureFile(slug: string, srcPath: string, destPath: s
   })
 }
 
+export async function deleteVentureFile(slug: string, path: string): Promise<void> {
+  await apiFetch(`/api/businesses/${enc(slug)}/files/${path.split('/').map(enc).join('/')}`, {
+    method: 'DELETE', errorLabel: 'Failed to delete file',
+  })
+}
+
 // ── .venturewiki Folders ───────────────────────────────────────────────────
 
 export async function createVentureFolder(slug: string, name: string): Promise<void> {

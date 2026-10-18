@@ -14,7 +14,7 @@ import {
   fetchBusiness, toggleFeatured, fetchEditHistory, fetchComments, postComment,
   fetchCandidates, fetchValidations, fetchInvestments, fetchVentureValue,
   fetchVentureFiles, fetchVentureFile, createVentureFile, updateBusiness,
-  updatePlanYaml, moveVentureFile,
+  updatePlanYaml, moveVentureFile, deleteVentureFile,
   createVentureFolder, renameVentureFolder, deleteVentureFolder,
 } from '@/lib/api'
 import { categoryFromName } from '@/lib/mime'
@@ -190,6 +190,18 @@ export default function VenturePage() {
     }
   }
 
+  const handleDeleteFile = async (path: string) => {
+    if (!business) return
+    if (!confirm(`Delete file "${path}"? This cannot be undone.`)) return
+    try {
+      await deleteVentureFile(business.id, path)
+      await refreshFiles()
+      if (activeFile === path) selectTab(defaultTab)
+    } catch (e: any) {
+      alert(e?.message || 'Failed to delete file')
+    }
+  }
+
   const handleMoveFile = async (srcPath: string, destPath: string) => {
     if (!business) return
     try {
@@ -272,6 +284,7 @@ export default function VenturePage() {
             onRenameFolder={handleRenameFolder}
             onDeleteFolder={handleDeleteFolder}
             onMoveFile={handleMoveFile}
+            onDeleteFile={handleDeleteFile}
             onNavigate={closeNavOnMobile}
           />
           </div>

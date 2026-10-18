@@ -199,6 +199,7 @@ function FileTreeNode({
   onRenameFolder,
   onDeleteFolder,
   onMoveFile,
+  onDeleteFile,
 }: {
   node: TreeNode
   depth: number
@@ -209,6 +210,7 @@ function FileTreeNode({
   onRenameFolder: (path: string) => void
   onDeleteFolder: (path: string) => void
   onMoveFile: (srcPath: string, destFolder: string) => void
+  onDeleteFile: (path: string) => void
 }) {
   const [open, setOpen] = useState(true)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -260,6 +262,7 @@ function FileTreeNode({
             onRenameFolder={onRenameFolder}
             onDeleteFolder={onDeleteFolder}
             onMoveFile={onMoveFile}
+            onDeleteFile={onDeleteFile}
           />
         ))}
       </div>
@@ -288,13 +291,22 @@ function FileTreeNode({
           <span className="truncate font-mono text-xs">{node.name}</span>
         </button>
         {canEdit && (
-          <button
-            onClick={(e) => { e.stopPropagation(); setMoveMenuOpen(true) }}
-            className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-rule/40"
-            title="Move file"
-          >
-            <FolderInput className="w-3.5 h-3.5 text-paper/50" />
-          </button>
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => { e.stopPropagation(); setMoveMenuOpen(true) }}
+              className="p-0.5 rounded hover:bg-rule/40"
+              title="Move file"
+            >
+              <FolderInput className="w-3.5 h-3.5 text-paper/50" />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onDeleteFile(node.path) }}
+              className="p-0.5 rounded hover:bg-rose-500/10"
+              title="Delete file"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-paper/50 hover:text-rose-400" />
+            </button>
+          </div>
         )}
       </div>
       {moveMenuOpen && (
@@ -319,7 +331,7 @@ function FileTreeNode({
 export function SectionsNav({
   sectionTabs, platformTabs, files, activeTab, activeFile,
   canEdit, onSelectTab, onSelectFile, onAddFile,
-  onCreateFolder, onRenameFolder, onDeleteFolder, onMoveFile, onNavigate,
+  onCreateFolder, onRenameFolder, onDeleteFolder, onMoveFile, onDeleteFile, onNavigate,
 }: {
   sectionTabs: NavTab[]
   platformTabs: NavTab[]
@@ -334,6 +346,7 @@ export function SectionsNav({
   onRenameFolder?: (path: string) => void
   onDeleteFolder?: (path: string) => void
   onMoveFile?: (srcPath: string, destFolder: string) => void
+  onDeleteFile?: (path: string) => void
   onNavigate?: () => void
 }) {
   const tree = buildTree(files)
@@ -387,6 +400,7 @@ export function SectionsNav({
                 onRenameFolder={(path) => onRenameFolder?.(path)}
                 onDeleteFolder={(path) => onDeleteFolder?.(path)}
                 onMoveFile={(src, dest) => onMoveFile?.(src, dest)}
+                onDeleteFile={(path) => onDeleteFile?.(path)}
               />
             ))}
 
